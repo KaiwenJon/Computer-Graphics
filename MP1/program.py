@@ -64,6 +64,7 @@ class Vertex:
         self.screenSpace["g"] = self.NDCSpace["g"]
         self.screenSpace["b"] = self.NDCSpace["b"]
 
+
     def __str__(self):
         print(self.clipSpace)
         print(self.NDCSpace)
@@ -196,9 +197,32 @@ class PNG:
                 # g = 255
                 # b = 255
                 # print(xs, ys, r, g, b)
+                if(self.enableSRGB):
+                    r = self.gammaCorrect(r, type="displayToStorage")
+                    g = self.gammaCorrect(g, type="displayToStorage")
+                    b = self.gammaCorrect(b, type="displayToStorage")
+                r *= 255
+                g *= 255
+                b *= 255
                 self.image.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), 255))
 
-
+    def gammaCorrect(self, color, type):
+        if(type == "storageToDisplay"):
+            Lstorage = color
+            if(Lstorage <= 0.04045):
+                Ldisplay = Lstorage/12.92
+            else:
+                Ldisplay = ((Lstorage+0.055)/1.055)**2.4
+            return Ldisplay
+        elif(type == "displayToStorage"):
+            Ldisplay = color
+            if(Ldisplay <= 0.0031308):
+                Lstorage = 12.92 * Ldisplay
+            else:
+                Lstorage = 1.055 * Ldisplay**(1/2.4) - 0.055
+            return Lstorage
+        else:
+            print("Please specify type correctly")
 
     def readKeyword(self, line):
         if(line == "\n" or line == " "):
@@ -228,6 +252,14 @@ class PNG:
             r = float(info[1])
             g = float(info[2])
             b = float(info[3])
+
+            if(self.enableSRGB):
+                r /= 255
+                g /= 255
+                b /= 255
+                r = self.gammaCorrect(r, type="storageToDisplay")
+                g = self.gammaCorrect(g, type="storageToDisplay")
+                b = self.gammaCorrect(b, type="storageToDisplay")
             self.current_rgb = (r, g, b)
         elif(keyword == "tri"):
             triangle = Triangle()
