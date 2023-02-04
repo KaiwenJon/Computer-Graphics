@@ -44,14 +44,15 @@ class Vertex:
         self.clipSpace["g"] = g
         self.clipSpace["b"] = b
 
+    def toNDCSpace(self):
         self.NDCSpace = {}
-        self.NDCSpace["x"] = x / w
-        self.NDCSpace["y"] = y / w
-        self.NDCSpace["z"] = z / w
-        self.NDCSpace["w"] = 1 / w
-        self.NDCSpace["r"] = r / w
-        self.NDCSpace["g"] = g / w
-        self.NDCSpace["b"] = b / w
+        self.NDCSpace["x"] = self.clipSpace["x"] / self.clipSpace["w"]
+        self.NDCSpace["y"] = self.clipSpace["y"] / self.clipSpace["w"]
+        self.NDCSpace["z"] = self.clipSpace["z"] / self.clipSpace["w"]
+        self.NDCSpace["w"] = 1 / self.clipSpace["w"]
+        self.NDCSpace["r"] = self.clipSpace["r"] / self.clipSpace["w"]
+        self.NDCSpace["g"] = self.clipSpace["g"] / self.clipSpace["w"]
+        self.NDCSpace["b"] = self.clipSpace["b"] / self.clipSpace["w"]
 
     def toScreenSpace(self, width, height):
         assert (self.NDCSpace != None)
@@ -256,6 +257,7 @@ class PNG:
 
         for tri in self.tri:
             for vertex in tri.vertices:
+                vertex.toNDCSpace()
                 vertex.toScreenSpace(self.w, self.h)
             if(self.enableCull):
                 orient = self.checkOrient(tri)
@@ -374,6 +376,15 @@ class PNG:
         elif(keyword == "clipplane"):
             plane = np.array([float(info[1]), float(info[2]), float(info[3]), float(info[4])])
             self.clipplane.append(plane)
+        elif(keyword == "frustum"):
+            planes = np.array([[ 1,  0,  0,  1],
+                               [-1,  0,  0,  1],
+                               [ 0,  1,  0,  1],
+                               [ 0, -1,  0,  1],
+                               [ 0,  0,  1,  1],
+                               [ 0,  0, -1,  1]])
+            for plane in planes:
+                self.clipplane.append(plane)
             
                     
             
