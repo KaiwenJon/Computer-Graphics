@@ -87,6 +87,7 @@ class PNG:
         self.tri = []
         self.enableDepthBuffer = False
         self.enableSRGB = False
+        self.enableCull = False
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -153,13 +154,30 @@ class PNG:
         
         return pixelBufferOutput
             
-            
+    def checkOrient(self, tri):
+        v1 = tri.vertices[0]
+        v2 = tri.vertices[1]
+        v3 = tri.vertices[2]   
+        vector1 = np.array([v2.screenSpace["x"] - v1.screenSpace["x"], v2.screenSpace["y"] - v1.screenSpace["y"], 0])         
+        vector2 = np.array([v3.screenSpace["x"] - v2.screenSpace["x"], v3.screenSpace["y"] - v2.screenSpace["y"], 0])         
+        cross_product = np.cross(vector1, vector2)
+        if(cross_product[2] > 0):
+            orient = "CW"
+        elif(cross_product[2] < 0):
+            orient = "CCW"
+        return orient
+
+        
 
     def draw(self):
         for tri in self.tri:
-            print(tri)
             for vertex in tri.vertices:
                 vertex.toScreenSpace(self.w, self.h)
+            if(self.enableCull):
+                orient = self.checkOrient(tri)
+                if(orient == "CW"):
+                    continue
+            print(tri)
                 # print(vertex)
             pixels = self.DDA(tri)
             for pixel in pixels:
@@ -177,7 +195,7 @@ class PNG:
                 # r = 255
                 # g = 255
                 # b = 255
-                print(xs, ys, r, g, b)
+                # print(xs, ys, r, g, b)
                 self.image.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), 255))
 
 
@@ -225,6 +243,8 @@ class PNG:
             self.depthBuffer = np.ones((self.h, self.w))
         elif(keyword == "sRGB"):
             self.enableSRGB = True
+        elif(keyword == "cull"):
+            self.enableCull = True
             
                     
             
