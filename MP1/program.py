@@ -86,6 +86,7 @@ class PNG:
         self.vertexBuffer = []
         self.current_rgb = (255, 255, 255)
         self.tri = []
+        self.clipplane = []
         self.enableDepthBuffer = False
         self.enableSRGB = False
         self.enableCull = False
@@ -169,9 +170,90 @@ class PNG:
             orient = "CCW"
         return orient
 
-        
-
+    def clipTriangle(self, triangle, plane):
+        def getIntersectPoint(vertex1, vertex2, plane):
+            geometry1 = np.array([vertex1.clipSpace["x"], vertex1.clipSpace["y"], vertex1.clipSpace["z"], vertex1.clipSpace["w"]])
+            geometry2 = np.array([vertex2.clipSpace["x"], vertex2.clipSpace["y"], vertex2.clipSpace["z"], vertex2.clipSpace["w"]])
+            signed_dist1 = np.dot(geometry1, plane)
+            signed_dist2 = np.dot(geometry2, plane)
+            assert (np.sign(signed_dist1) * np.sign(signed_dist2) < 0)
+            new_x = (vertex1.clipSpace["x"] * signed_dist2 - vertex2.clipSpace["x"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            new_y = (vertex1.clipSpace["y"] * signed_dist2 - vertex2.clipSpace["y"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            new_z = (vertex1.clipSpace["z"] * signed_dist2 - vertex2.clipSpace["z"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            new_w = (vertex1.clipSpace["w"] * signed_dist2 - vertex2.clipSpace["w"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            new_r = (vertex1.clipSpace["r"] * signed_dist2 - vertex2.clipSpace["r"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            new_g = (vertex1.clipSpace["g"] * signed_dist2 - vertex2.clipSpace["g"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            new_b = (vertex1.clipSpace["b"] * signed_dist2 - vertex2.clipSpace["b"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            newVertex = Vertex(new_x, new_y, new_z, new_w, new_r, new_g, new_b)
+            return newVertex
+        vertices_plane_test = {
+            "out": [],
+            "on": [],
+            "in": []
+        }
+        for vertex in triangle.vertices:
+            geometry = np.array([vertex.clipSpace["x"], vertex.clipSpace["y"], vertex.clipSpace["z"], vertex.clipSpace["w"]])
+            signed_distance = np.dot(geometry, plane)
+            if(signed_distance < 0):
+                scenario = "out"
+            elif(signed_distance == 0):
+                scenario = "on"
+            elif(signed_distance > 0):
+                scenario = "in"
+            vertices_plane_test[scenario].append(vertex)
+        assert (len(vertices_plane_test["out"]) + len(vertices_plane_test["on"]) + len(vertices_plane_test["in"]) == 3)
+        if(len(vertices_plane_test["out"]) == 0):
+            # safe
+            return [triangle]
+        elif(len(vertices_plane_test["out"]) + len(vertices_plane_test["on"]) == 3):
+            # discard the entire triangle
+            return []
+        elif(len(vertices_plane_test["out"]) == 2):
+            # return a new triangle
+            intersect1 = getIntersectPoint(vertices_plane_test["out"][0], vertices_plane_test["in"][0], plane)
+            intersect2 = getIntersectPoint(vertices_plane_test["out"][1], vertices_plane_test["in"][0], plane)
+            new_triangle = Triangle()
+            new_triangle.addVertex(vertices_plane_test["in"][0])
+            new_triangle.addVertex(intersect1)
+            new_triangle.addVertex(intersect2)
+            return [new_triangle]   
+        elif(len(vertices_plane_test["out"]) == 1):
+            if(len(vertices_plane_test["on"]) == 1):
+                # return a new triangle
+                intersect = getIntersectPoint(vertices_plane_test["out"][0], vertices_plane_test["in"][0], plane)
+                new_triangle = Triangle()
+                new_triangle.addVertex(vertices_plane_test["in"][0])
+                new_triangle.addVertex(vertices_plane_test["on"][0])
+                new_triangle.addVertex(intersect)
+                return [new_triangle]
+            else:
+                # return two triangles
+                intersect1 = getIntersectPoint(vertices_plane_test["in"][0], vertices_plane_test["out"][0], plane)
+                intersect2 = getIntersectPoint(vertices_plane_test["in"][1], vertices_plane_test["out"][0], plane)
+                new_triangle1 = Triangle()
+                new_triangle1.addVertex(vertices_plane_test["in"][0])
+                new_triangle1.addVertex(vertices_plane_test["in"][1])
+                new_triangle1.addVertex(intersect1)
+                new_triangle2 = Triangle()
+                new_triangle2.addVertex(vertices_plane_test["in"][1])
+                new_triangle2.addVertex(intersect1)
+                new_triangle2.addVertex(intersect2)
+                return [new_triangle1, new_triangle2]
+            
+                    
+    
+    
+    
     def draw(self):
+        if(len(self.clipplane) != 0):
+            for plane in self.clipplane:
+                tri_list = self.tri
+                new_tri_list = []
+                for tri in tri_list:
+                    new_triangles = self.clipTriangle(tri, plane)
+                    new_tri_list.extend(new_triangles)
+                self.tri = new_tri_list
+
         for tri in self.tri:
             for vertex in tri.vertices:
                 vertex.toScreenSpace(self.w, self.h)
@@ -289,6 +371,9 @@ class PNG:
             self.enableCull = True
         elif(keyword == "hyp"):
             self.enablePersp = True
+        elif(keyword == "clipplane"):
+            plane = np.array([float(info[1]), float(info[2]), float(info[3]), float(info[4])])
+            self.clipplane.append(plane)
             
                     
             
