@@ -89,6 +89,7 @@ class PNG:
         self.enableDepthBuffer = False
         self.enableSRGB = False
         self.enableCull = False
+        self.enablePersp = False
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -186,13 +187,23 @@ class PNG:
                 ys = pixel[1]
                 z = tri.getInterpolation(attribute="z", space="screenSpace", xs=xs, ys=ys)
                 if(self.enableDepthBuffer):
-                    if(z >= self.depthBuffer[int(ys)][int(xs)]):
+                    if(z > self.depthBuffer[int(ys)][int(xs)]):
                         continue
                     else:
                         self.depthBuffer[int(ys)][int(xs)] = z
-                r = tri.getInterpolation(attribute="r", space="clipSpace", xs=xs, ys=ys)
-                g = tri.getInterpolation(attribute="g", space="clipSpace", xs=xs, ys=ys)
-                b = tri.getInterpolation(attribute="b", space="clipSpace", xs=xs, ys=ys)
+
+                if(self.enablePersp):
+                    r = tri.getInterpolation(attribute="r", space="screenSpace", xs=xs, ys=ys)
+                    g = tri.getInterpolation(attribute="g", space="screenSpace", xs=xs, ys=ys)
+                    b = tri.getInterpolation(attribute="b", space="screenSpace", xs=xs, ys=ys)
+                    w = tri.getInterpolation(attribute="w", space="screenSpace", xs=xs, ys=ys)
+                    r /= w
+                    g /= w
+                    b /= w
+                else:
+                    r = tri.getInterpolation(attribute="r", space="clipSpace", xs=xs, ys=ys)
+                    g = tri.getInterpolation(attribute="g", space="clipSpace", xs=xs, ys=ys)
+                    b = tri.getInterpolation(attribute="b", space="clipSpace", xs=xs, ys=ys)
                 # r = 255
                 # g = 255
                 # b = 255
@@ -277,6 +288,8 @@ class PNG:
             self.enableSRGB = True
         elif(keyword == "cull"):
             self.enableCull = True
+        elif(keyword == "hyp"):
+            self.enablePersp = True
             
                     
             
