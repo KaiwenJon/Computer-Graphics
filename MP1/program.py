@@ -8,7 +8,7 @@ class Triangle:
         self.vertices = []
     def addVertex(self, Vertex):
         self.vertices.append(Vertex)
-    def getInterpolation(self, attribute, perspective, xs, ys):
+    def getInterpolation(self, attribute, space, xs, ys):
         # assert (xs, ys) is within the triangle
         # solve for alpha, beta
         va = self.vertices[0]
@@ -19,17 +19,16 @@ class Triangle:
         b = np.array([[xs - va.screenSpace["x"]],
                       [ys - va.screenSpace["y"]]])       
         [alpha, beta] = np.linalg.inv(A) @ b
-
-        if(perspective):
-            assert (attribute != "x" and attribute != "y" and attribute != "z")
-            P_attribute = alpha * (vb.screenSpace[attribute] - va.screenSpace[attribute]) + beta * (vc.screenSpace[attribute] - va.screenSpace[attribute]) + va.screenSpace[attribute]
-            P_w = alpha * (vb.screenSpace["w"] - va.screenSpace["w"]) + beta * (vc.screenSpace["w"] - va.screenSpace["w"]) + va.screenSpace["w"]
-            return P_attribute / P_w
-        else:
+        if(space == "clipSpace"):
             P_attribute = alpha * (vb.clipSpace[attribute] - va.clipSpace[attribute]) + beta * (vc.clipSpace[attribute] - va.clipSpace[attribute]) + va.clipSpace[attribute]
-            return P_attribute
-
-
+        elif(space == "NDCSpace"):
+            P_attribute = alpha * (vb.NDCSpace[attribute] - va.NDCSpace[attribute]) + beta * (vc.NDCSpace[attribute] - va.NDCSpace[attribute]) + va.NDCSpace[attribute]
+        elif(space == "screenSpace"):
+            P_attribute = alpha * (vb.screenSpace[attribute] - va.screenSpace[attribute]) + beta * (vc.screenSpace[attribute] - va.screenSpace[attribute]) + va.screenSpace[attribute]
+        
+        return P_attribute
+        
+        
 class Vertex:
     def __init__(self, x, y, z, w, r, g, b):
         self.clipSpace = None
@@ -86,6 +85,8 @@ class PNG:
         self.vertexBuffer = []
         self.current_rgb = (255, 255, 255)
         self.tri = []
+        self.enableDepthBuffer = False
+        self.enableSRGB = False
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -93,7 +94,9 @@ class PNG:
         
         self.draw()
         self.image.save(self.outputFile)
-
+    # def gamma_correction(self, type):
+    #     if(type == "storeTodisplay"):
+            
     def DDA_one_direction(self, pt1, pt2, direction, pixelBuffer):
         if(direction == "x"):
             id = 0
@@ -162,9 +165,15 @@ class PNG:
             for pixel in pixels:
                 xs = pixel[0]
                 ys = pixel[1]
-                r = tri.getInterpolation(attribute="r", perspective=False, xs=xs, ys=ys)
-                g = tri.getInterpolation(attribute="g", perspective=False, xs=xs, ys=ys)
-                b = tri.getInterpolation(attribute="b", perspective=False, xs=xs, ys=ys)
+                z = tri.getInterpolation(attribute="z", space="screenSpace", xs=xs, ys=ys)
+                if(self.enableDepthBuffer):
+                    if(z >= self.depthBuffer[int(ys)][int(xs)]):
+                        continue
+                    else:
+                        self.depthBuffer[int(ys)][int(xs)] = z
+                r = tri.getInterpolation(attribute="r", space="clipSpace", xs=xs, ys=ys)
+                g = tri.getInterpolation(attribute="g", space="clipSpace", xs=xs, ys=ys)
+                b = tri.getInterpolation(attribute="b", space="clipSpace", xs=xs, ys=ys)
                 # r = 255
                 # g = 255
                 # b = 255
@@ -211,7 +220,11 @@ class PNG:
                 elif(id > 0):
                     triangle.addVertex(self.vertexBuffer[id-1])
             self.tri.append(triangle)
-        elif(keyword =="hyp"):
+        elif(keyword == "depth"):
+            self.enableDepthBuffer = True
+            self.depthBuffer = np.ones((self.h, self.w))
+        elif(keyword == "sRGB"):
+            self.enableSRGB = True
             
                     
             
