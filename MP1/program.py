@@ -263,11 +263,10 @@ class PNG:
             r = float(info[1])
             g = float(info[2])
             b = float(info[3])
-
+            r /= 255
+            g /= 255
+            b /= 255
             if(self.enableSRGB):
-                r /= 255
-                g /= 255
-                b /= 255
                 r = self.gammaCorrect(r, type="storageToDisplay")
                 g = self.gammaCorrect(g, type="storageToDisplay")
                 b = self.gammaCorrect(b, type="storageToDisplay")
