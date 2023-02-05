@@ -96,7 +96,9 @@ class PNG:
         self.enableCull = False
         self.enablePersp = False
         self.enableAlphaBlending = False
+        self.enableFsaa = False
         self.blendingBuffer = []
+        self.largerImage = None
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -303,20 +305,16 @@ class PNG:
                 # b = 255
                 # print(xs, ys, r, g, b)
                 if(not self.enableAlphaBlending):
-                    if(self.enableSRGB):
-                        r = self.gammaCorrect(r, type="displayToStorage")
-                        g = self.gammaCorrect(g, type="displayToStorage")
-                        b = self.gammaCorrect(b, type="displayToStorage")
-                        
-                        r *= 255
-                        g *= 255
-                        b *= 255
-                        a *= 255
-                        self.image.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), int(a)))
+                    # Don't do blending buffer
+                    if(self.enableFsaa):
+                        self.fillPixels(xs, ys, r, g, b, a, gamma_correct=False, buffer="largerImage")
+                    else:
+                        self.fillPixels(xs, ys, r, g, b, a, gamma_correct=self.enableSRGB, buffer="outputImage")
                 else:
                     # Put in PNG later
                     self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
         if(self.enableAlphaBlending):
+            assert(self.enableSRGB == True)
             for ys in range(self.h):
                 for xs in range(self.w):
                     color_points = self.blendingBuffer[ys][xs]
@@ -342,17 +340,36 @@ class PNG:
                         current_r = output_r
                         current_g = output_g
                         current_b = output_b
+                    if(self.enableFsaa):
+                        self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, gamma_correct=False, buffer="largerImage")
+                    else:
+                        self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, gamma_correct=True, buffer="outputImage")
+        if(self.enableFsaa):
+            self.averageFsaa()
+    def fillPixels(self, xs, ys, r, g, b, a, gamma_correct, buffer):
+        if(buffer == "outputImage"):
+            if(gamma_correct):
+                r = self.gammaCorrect(r, type="displayToStorage")
+                g = self.gammaCorrect(g, type="displayToStorage")
+                b = self.gammaCorrect(b, type="displayToStorage")
+            r *= 255
+            g *= 255
+            b *= 255
+            a *= 255
+            self.image.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), int(a)))
+        elif(buffer == "largerImage"):
+            # No gamma correct
+            r *= 255
+            g *= 255
+            b *= 255
+            a *= 255
+            self.largerImage.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), int(a)))
+        
 
-                    current_r = self.gammaCorrect(current_r, type="displayToStorage")
-                    current_g = self.gammaCorrect(current_g, type="displayToStorage")
-                    current_b = self.gammaCorrect(current_b, type="displayToStorage")
-                    current_a *= 255
-                    current_r *= 255
-                    current_g *= 255
-                    current_b *= 255
-
-                    self.image.im.putpixel((int(xs), int(ys)), (int(current_r), int(current_g), int(current_b), int(current_a)))
-
+    def averageFsaa(self):
+        # USe the result in larger PNG, gamma correct, and put pixel in self.image
+        # self.largerImage.getpixel((4, 6))
+        pass
 
     def gammaCorrect(self, color, type):
         if(type == "storageToDisplay"):
@@ -459,6 +476,14 @@ class PNG:
                                [ 0,  0, -1,  1]])
             for plane in planes:
                 self.clipplane.append(plane)
+        elif(keyword == "fsaa"):
+            self.enableFsaa = True
+            level = info[1]
+            self.w *= level
+            self.h *= level
+            self.level = level
+            self.largerImage = Image.new("RGBA", (self.w, self.h), (0,0,0,0))
+            self.enableAlphaBlending = True
             
                     
             
