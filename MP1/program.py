@@ -30,7 +30,7 @@ class Triangle:
         
         
 class Vertex:
-    def __init__(self, x, y, z, w, r, g, b):
+    def __init__(self, x, y, z, w, r, g, b, a):
         self.clipSpace = None
         self.NDCSpae = None
         self.screenSpace = None
@@ -43,6 +43,7 @@ class Vertex:
         self.clipSpace["r"] = r
         self.clipSpace["g"] = g
         self.clipSpace["b"] = b
+        self.clipSpace["a"] = a
 
     def toNDCSpace(self):
         self.NDCSpace = {}
@@ -53,6 +54,7 @@ class Vertex:
         self.NDCSpace["r"] = self.clipSpace["r"] / self.clipSpace["w"]
         self.NDCSpace["g"] = self.clipSpace["g"] / self.clipSpace["w"]
         self.NDCSpace["b"] = self.clipSpace["b"] / self.clipSpace["w"]
+        self.NDCSpace["a"] = self.clipSpace["a"] / self.clipSpace["w"]
 
     def toScreenSpace(self, width, height):
         assert (self.NDCSpace != None)
@@ -64,6 +66,7 @@ class Vertex:
         self.screenSpace["r"] = self.NDCSpace["r"]
         self.screenSpace["g"] = self.NDCSpace["g"]
         self.screenSpace["b"] = self.NDCSpace["b"]
+        self.screenSpace["a"] = self.NDCSpace["a"]
 
 
     def __str__(self):
@@ -85,13 +88,15 @@ class PNG:
         self.outputFile = ""
         self.image = None
         self.vertexBuffer = []
-        self.current_rgb = (255, 255, 255)
+        self.current_rgba = (1, 1, 1, 1)
         self.tri = []
         self.clipplane = []
         self.enableDepthBuffer = False
         self.enableSRGB = False
         self.enableCull = False
         self.enablePersp = False
+        self.enableAlphaBlending = False
+        self.blendingBuffer = []
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -185,7 +190,8 @@ class PNG:
             new_r = (vertex1.clipSpace["r"] * signed_dist2 - vertex2.clipSpace["r"] * signed_dist1)/(signed_dist2 - signed_dist1)
             new_g = (vertex1.clipSpace["g"] * signed_dist2 - vertex2.clipSpace["g"] * signed_dist1)/(signed_dist2 - signed_dist1)
             new_b = (vertex1.clipSpace["b"] * signed_dist2 - vertex2.clipSpace["b"] * signed_dist1)/(signed_dist2 - signed_dist1)
-            newVertex = Vertex(new_x, new_y, new_z, new_w, new_r, new_g, new_b)
+            new_a = (vertex1.clipSpace["a"] * signed_dist2 - vertex2.clipSpace["a"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            newVertex = Vertex(new_x, new_y, new_z, new_w, new_r, new_g, new_b, new_a)
             return newVertex
         vertices_plane_test = {
             "out": [],
@@ -280,26 +286,73 @@ class PNG:
                     r = tri.getInterpolation(attribute="r", space="screenSpace", xs=xs, ys=ys)
                     g = tri.getInterpolation(attribute="g", space="screenSpace", xs=xs, ys=ys)
                     b = tri.getInterpolation(attribute="b", space="screenSpace", xs=xs, ys=ys)
+                    a = tri.getInterpolation(attribute="a", space="screenSpace", xs=xs, ys=ys)
                     w = tri.getInterpolation(attribute="w", space="screenSpace", xs=xs, ys=ys)
                     r /= w
                     g /= w
                     b /= w
+                    a /= w
                 else:
                     r = tri.getInterpolation(attribute="r", space="clipSpace", xs=xs, ys=ys)
                     g = tri.getInterpolation(attribute="g", space="clipSpace", xs=xs, ys=ys)
                     b = tri.getInterpolation(attribute="b", space="clipSpace", xs=xs, ys=ys)
+                    a = tri.getInterpolation(attribute="a", space="clipSpace", xs=xs, ys=ys)
+                    
                 # r = 255
                 # g = 255
                 # b = 255
                 # print(xs, ys, r, g, b)
-                if(self.enableSRGB):
-                    r = self.gammaCorrect(r, type="displayToStorage")
-                    g = self.gammaCorrect(g, type="displayToStorage")
-                    b = self.gammaCorrect(b, type="displayToStorage")
-                r *= 255
-                g *= 255
-                b *= 255
-                self.image.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), 255))
+                if(not self.enableAlphaBlending):
+                    if(self.enableSRGB):
+                        r = self.gammaCorrect(r, type="displayToStorage")
+                        g = self.gammaCorrect(g, type="displayToStorage")
+                        b = self.gammaCorrect(b, type="displayToStorage")
+                        
+                        r *= 255
+                        g *= 255
+                        b *= 255
+                        a *= 255
+                        self.image.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), int(a)))
+                else:
+                    # Put in PNG later
+                    self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
+        if(self.enableAlphaBlending):
+            for ys in range(self.h):
+                for xs in range(self.w):
+                    color_points = self.blendingBuffer[ys][xs]
+                    if(len(color_points) == 0):
+                        continue
+                    color_points = sorted(np.array(color_points), key=lambda colorPoint: colorPoint[0], reverse=False) # sorted by z
+                    current_r = color_points[0][1]
+                    current_g = color_points[0][2]
+                    current_b = color_points[0][3]
+                    current_a = color_points[0][4]
+                    for i in range(1, len(color_points)):
+                        new_r = color_points[i][1]
+                        new_g = color_points[i][2]
+                        new_b = color_points[i][3]
+                        new_a = color_points[i][4]
+
+                        output_a = new_a + current_a * (1 - new_a)
+                        output_r = new_a/output_a * new_r + (1 - new_a) * current_a/output_a * current_r
+                        output_g = new_a/output_a * new_g + (1 - new_a) * current_a/output_a * current_g
+                        output_b = new_a/output_a * new_b + (1 - new_a) * current_a/output_a * current_b
+
+                        current_a = output_a
+                        current_r = output_r
+                        current_g = output_g
+                        current_b = output_b
+
+                    current_r = self.gammaCorrect(current_r, type="displayToStorage")
+                    current_g = self.gammaCorrect(current_g, type="displayToStorage")
+                    current_b = self.gammaCorrect(current_b, type="displayToStorage")
+                    current_a *= 255
+                    current_r *= 255
+                    current_g *= 255
+                    current_b *= 255
+
+                    self.image.im.putpixel((int(xs), int(ys)), (int(current_r), int(current_g), int(current_b), int(current_a)))
+
 
     def gammaCorrect(self, color, type):
         if(type == "storageToDisplay"):
@@ -337,10 +390,11 @@ class PNG:
             y = float(info[2])
             z = float(info[3])
             w = float(info[4])
-            r = self.current_rgb[0]
-            g = self.current_rgb[1]
-            b = self.current_rgb[2]
-            vertex = Vertex(x, y, z, w, r, g, b)
+            r = self.current_rgba[0]
+            g = self.current_rgba[1]
+            b = self.current_rgba[2]
+            a = self.current_rgba[3]
+            vertex = Vertex(x, y, z, w, r, g, b, a)
             self.vertexBuffer.append(vertex)
             # self.image.im.putpixel((x, y), (r, g, b, 255))
         elif(keyword == "rgb"):
@@ -350,11 +404,31 @@ class PNG:
             r /= 255
             g /= 255
             b /= 255
+            a = 1
             if(self.enableSRGB):
                 r = self.gammaCorrect(r, type="storageToDisplay")
                 g = self.gammaCorrect(g, type="storageToDisplay")
                 b = self.gammaCorrect(b, type="storageToDisplay")
-            self.current_rgb = (r, g, b)
+            self.current_rgba = (r, g, b, a)
+        elif(keyword == "rgba"):
+            r = float(info[1])
+            g = float(info[2])
+            b = float(info[3])
+            a = float(info[4])
+            r /= 255
+            g /= 255
+            b /= 255
+            if(self.enableSRGB):
+                r = self.gammaCorrect(r, type="storageToDisplay")
+                g = self.gammaCorrect(g, type="storageToDisplay")
+                b = self.gammaCorrect(b, type="storageToDisplay")
+            self.current_rgba = (r, g, b, a)
+            if(not self.enableAlphaBlending):
+                self.blendingBuffer = np.empty((self.h, self.w), dtype=object)
+                for i in range(self.h):
+                    for j in range(self.w):
+                        self.blendingBuffer[i][j] = []
+                self.enableAlphaBlending = True
         elif(keyword == "tri"):
             triangle = Triangle()
             for id in info[1:4]:
@@ -366,7 +440,7 @@ class PNG:
             self.tri.append(triangle)
         elif(keyword == "depth"):
             self.enableDepthBuffer = True
-            self.depthBuffer = np.ones((self.h, self.w))
+            self.depthBuffer = np.ones((self.h, self.w, 0))
         elif(keyword == "sRGB"):
             self.enableSRGB = True
         elif(keyword == "cull"):
