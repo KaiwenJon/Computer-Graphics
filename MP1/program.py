@@ -105,6 +105,7 @@ class PNG:
         self.enableAlphaBlending = False
         self.enableFsaa = False
         self.enableTexture = False
+        self.enableDecals = False
         self.texcoord = np.array([0.0, 0.0])
         self.blendingBuffer = []
         self.largerImage = None
@@ -267,9 +268,9 @@ class PNG:
         b /= 255
         a /= 255
         return r, g, b, a
-    def getRGBAOnScreen(self, tri, xs, ys):
+    def getRGBAOnScreen(self, tri, xs, ys, useTexture):
         if(self.enablePersp):
-            if(not tri.useTexture):
+            if(not useTexture):
                 r = tri.getInterpolation(attribute="r", space="screenSpace", xs=xs, ys=ys)
                 g = tri.getInterpolation(attribute="g", space="screenSpace", xs=xs, ys=ys)
                 b = tri.getInterpolation(attribute="b", space="screenSpace", xs=xs, ys=ys)
@@ -288,7 +289,7 @@ class PNG:
                 r, g, b, a = self.getTextureRGBA(s, t)
             
         else:
-            if(not tri.useTexture):
+            if(not useTexture):
                 r = tri.getInterpolation(attribute="r", space="clipSpace", xs=xs, ys=ys)
                 g = tri.getInterpolation(attribute="g", space="clipSpace", xs=xs, ys=ys)
                 b = tri.getInterpolation(attribute="b", space="clipSpace", xs=xs, ys=ys)
@@ -331,7 +332,7 @@ class PNG:
                         continue
                     else:
                         self.depthBuffer[int(ys)][int(xs)] = z
-                r, g, b, a = self.getRGBAOnScreen(tri=tri, xs=xs, ys=ys)
+                r, g, b, a = self.getRGBAOnScreen(tri=tri, xs=xs, ys=ys, useTexture=tri.useTexture)
                 # r = 255
                 # g = 255
                 # b = 255
@@ -341,10 +342,13 @@ class PNG:
                     self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput= not self.enableFsaa)
                 else:
                     # Put in PNG later
+                    if(self.enableDecals):
+                        r_under, g_under, b_under, a_under = self.getRGBAOnScreen(tri=tri, xs=xs, ys=ys, useTexture=False)
+                        self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r_under, g_under, b_under, a_under]))
                     self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
         if(self.enableAlphaBlending):
             print("Blending!")
-            assert(self.enableSRGB == True)
+            # assert(self.enableSRGB == True)
             for ys in range(self.h):
                 for xs in range(self.w):
                     color_points = self.blendingBuffer[ys][xs]
@@ -369,7 +373,7 @@ class PNG:
                         current_r = output_r
                         current_g = output_g
                         current_b = output_b
-                    self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, srgb=True, fillOutput= not self.enableFsaa)
+                    self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, srgb=self.enableSRGB, fillOutput= not self.enableFsaa)
         if(self.enableFsaa):
             self.averageFsaa()
 
@@ -608,6 +612,9 @@ class PNG:
                 elif(id > 0):
                     triangle.addVertex(self.vertexBuffer[id-1])
             self.tri.append(triangle)
+        elif(keyword == "decals"):
+            self.enableDecals = True
+            self.initBlendingBuffer()
             
 
         
