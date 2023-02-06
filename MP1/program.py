@@ -4,8 +4,9 @@ import numpy as np
 import math
 
 class Triangle:
-    def __init__(self):
+    def __init__(self, useTexture=False):
         self.vertices = []
+        self.useTexture = useTexture
     def addVertex(self, Vertex):
         self.vertices.append(Vertex)
     def getInterpolation(self, attribute, space, xs, ys):
@@ -18,19 +19,19 @@ class Triangle:
                       [vb.screenSpace["y"] - va.screenSpace["y"], vc.screenSpace["y"] - va.screenSpace["y"]]]) 
         b = np.array([[xs - va.screenSpace["x"]],
                       [ys - va.screenSpace["y"]]])       
-        [alpha, beta] = np.linalg.inv(A) @ b
+        x = np.linalg.inv(A) @ b
+        alpha, beta = x[0:2, 0]
         if(space == "clipSpace"):
             P_attribute = alpha * (vb.clipSpace[attribute] - va.clipSpace[attribute]) + beta * (vc.clipSpace[attribute] - va.clipSpace[attribute]) + va.clipSpace[attribute]
         elif(space == "NDCSpace"):
             P_attribute = alpha * (vb.NDCSpace[attribute] - va.NDCSpace[attribute]) + beta * (vc.NDCSpace[attribute] - va.NDCSpace[attribute]) + va.NDCSpace[attribute]
         elif(space == "screenSpace"):
             P_attribute = alpha * (vb.screenSpace[attribute] - va.screenSpace[attribute]) + beta * (vc.screenSpace[attribute] - va.screenSpace[attribute]) + va.screenSpace[attribute]
-        
         return P_attribute
         
         
 class Vertex:
-    def __init__(self, x, y, z, w, r, g, b, a):
+    def __init__(self, x, y, z, w, r, g, b, a, s, t):
         self.clipSpace = None
         self.NDCSpae = None
         self.screenSpace = None
@@ -44,6 +45,8 @@ class Vertex:
         self.clipSpace["g"] = g
         self.clipSpace["b"] = b
         self.clipSpace["a"] = a
+        self.clipSpace["s"] = s
+        self.clipSpace["t"] = t
 
     def toNDCSpace(self):
         self.NDCSpace = {}
@@ -55,7 +58,9 @@ class Vertex:
         self.NDCSpace["g"] = self.clipSpace["g"] / self.clipSpace["w"]
         self.NDCSpace["b"] = self.clipSpace["b"] / self.clipSpace["w"]
         self.NDCSpace["a"] = self.clipSpace["a"] / self.clipSpace["w"]
-
+        self.NDCSpace["s"] = self.clipSpace["s"] / self.clipSpace["w"]
+        self.NDCSpace["t"] = self.clipSpace["t"] / self.clipSpace["w"]
+        
     def toScreenSpace(self, width, height):
         assert (self.NDCSpace != None)
         self.screenSpace = {}
@@ -67,6 +72,8 @@ class Vertex:
         self.screenSpace["g"] = self.NDCSpace["g"]
         self.screenSpace["b"] = self.NDCSpace["b"]
         self.screenSpace["a"] = self.NDCSpace["a"]
+        self.screenSpace["s"] = self.NDCSpace["s"]
+        self.screenSpace["t"] = self.NDCSpace["t"]
 
 
     def __str__(self):
@@ -97,6 +104,8 @@ class PNG:
         self.enablePersp = False
         self.enableAlphaBlending = False
         self.enableFsaa = False
+        self.enableTexture = False
+        self.texcoord = np.array([0.0, 0.0])
         self.blendingBuffer = []
         self.largerImage = None
         self.points = []
@@ -107,8 +116,6 @@ class PNG:
         
         self.draw()
         self.image.save(self.outputFile)
-    # def gamma_correction(self, type):
-    #     if(type == "storeTodisplay"):
             
     def DDA_one_direction(self, pt1, pt2, direction, pixelBuffer):
         if(direction == "x"):
@@ -183,7 +190,10 @@ class PNG:
             new_g = (vertex1.clipSpace["g"] * signed_dist2 - vertex2.clipSpace["g"] * signed_dist1)/(signed_dist2 - signed_dist1)
             new_b = (vertex1.clipSpace["b"] * signed_dist2 - vertex2.clipSpace["b"] * signed_dist1)/(signed_dist2 - signed_dist1)
             new_a = (vertex1.clipSpace["a"] * signed_dist2 - vertex2.clipSpace["a"] * signed_dist1)/(signed_dist2 - signed_dist1)
-            newVertex = Vertex(new_x, new_y, new_z, new_w, new_r, new_g, new_b, new_a)
+            new_s = (vertex1.clipSpace["s"] * signed_dist2 - vertex2.clipSpace["s"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            new_t = (vertex1.clipSpace["t"] * signed_dist2 - vertex2.clipSpace["t"] * signed_dist1)/(signed_dist2 - signed_dist1)
+            
+            newVertex = Vertex(new_x, new_y, new_z, new_w, new_r, new_g, new_b, new_a, new_s, new_t)
             return newVertex
         vertices_plane_test = {
             "out": [],
@@ -239,8 +249,56 @@ class PNG:
                 new_triangle2.addVertex(intersect2)
                 return [new_triangle1, new_triangle2]
             
-                    
-    
+    def getTextureRGBA(self, s, t):
+        textcoords = [s, t]
+        for id, _ in enumerate(textcoords):
+            while(textcoords[id] < 0):
+                textcoords[id] += 1
+            while(textcoords[id] >= 1):
+                textcoords[id] -= 1
+        [new_s, new_t] = textcoords
+        new_s *= self.text_w
+        new_t *= self.text_h
+        new_s = math.floor(new_s)
+        new_t = math.floor(new_t)
+        [r, g, b, a] = self.texture.getpixel((new_s, new_t))
+        r /= 255
+        g /= 255
+        b /= 255
+        a /= 255
+        return r, g, b, a
+    def getRGBAOnScreen(self, tri, xs, ys):
+        if(self.enablePersp):
+            if(not tri.useTexture):
+                r = tri.getInterpolation(attribute="r", space="screenSpace", xs=xs, ys=ys)
+                g = tri.getInterpolation(attribute="g", space="screenSpace", xs=xs, ys=ys)
+                b = tri.getInterpolation(attribute="b", space="screenSpace", xs=xs, ys=ys)
+                a = tri.getInterpolation(attribute="a", space="screenSpace", xs=xs, ys=ys)
+                w = tri.getInterpolation(attribute="w", space="screenSpace", xs=xs, ys=ys)
+                r /= w
+                g /= w
+                b /= w
+                a /= w
+            else:
+                s = tri.getInterpolation(attribute="s", space="screenSpace", xs=xs, ys=ys)
+                t = tri.getInterpolation(attribute="t", space="screenSpace", xs=xs, ys=ys)
+                w = tri.getInterpolation(attribute="w", space="screenSpace", xs=xs, ys=ys)
+                s /= w
+                t /= w
+                r, g, b, a = self.getTextureRGBA(s, t)
+            
+        else:
+            if(not tri.useTexture):
+                r = tri.getInterpolation(attribute="r", space="clipSpace", xs=xs, ys=ys)
+                g = tri.getInterpolation(attribute="g", space="clipSpace", xs=xs, ys=ys)
+                b = tri.getInterpolation(attribute="b", space="clipSpace", xs=xs, ys=ys)
+                a = tri.getInterpolation(attribute="a", space="clipSpace", xs=xs, ys=ys)
+            else:
+                s = tri.getInterpolation(attribute="s", space="clipSpace", xs=xs, ys=ys)
+                t = tri.getInterpolation(attribute="t", space="clipSpace", xs=xs, ys=ys)
+                r, g, b, a = self.getTextureRGBA(s, t)
+
+        return r, g, b, a
     
     
     def draw(self):
@@ -273,27 +331,11 @@ class PNG:
                         continue
                     else:
                         self.depthBuffer[int(ys)][int(xs)] = z
-
-                if(self.enablePersp):
-                    r = tri.getInterpolation(attribute="r", space="screenSpace", xs=xs, ys=ys)
-                    g = tri.getInterpolation(attribute="g", space="screenSpace", xs=xs, ys=ys)
-                    b = tri.getInterpolation(attribute="b", space="screenSpace", xs=xs, ys=ys)
-                    a = tri.getInterpolation(attribute="a", space="screenSpace", xs=xs, ys=ys)
-                    w = tri.getInterpolation(attribute="w", space="screenSpace", xs=xs, ys=ys)
-                    r /= w
-                    g /= w
-                    b /= w
-                    a /= w
-                else:
-                    r = tri.getInterpolation(attribute="r", space="clipSpace", xs=xs, ys=ys)
-                    g = tri.getInterpolation(attribute="g", space="clipSpace", xs=xs, ys=ys)
-                    b = tri.getInterpolation(attribute="b", space="clipSpace", xs=xs, ys=ys)
-                    a = tri.getInterpolation(attribute="a", space="clipSpace", xs=xs, ys=ys)
-                    
+                r, g, b, a = self.getRGBAOnScreen(tri=tri, xs=xs, ys=ys)
                 # r = 255
                 # g = 255
                 # b = 255
-                # print(xs, ys, r, g, b)
+                # print(xs, ys, r, g, b, z)
                 if(not self.enableAlphaBlending):
                     # Don't do blending buffer
                     self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput= not self.enableFsaa)
@@ -301,13 +343,14 @@ class PNG:
                     # Put in PNG later
                     self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
         if(self.enableAlphaBlending):
+            print("Blending!")
             assert(self.enableSRGB == True)
             for ys in range(self.h):
                 for xs in range(self.w):
                     color_points = self.blendingBuffer[ys][xs]
                     if(len(color_points) == 0):
                         continue
-                    color_points = sorted(np.array(color_points), key=lambda colorPoint: colorPoint[0], reverse=False) # sorted by z
+                    color_points = sorted(np.array(color_points), key=lambda colorPoint: colorPoint[0], reverse=True) # sorted by z
                     current_r = color_points[0][1]
                     current_g = color_points[0][2]
                     current_b = color_points[0][3]
@@ -317,7 +360,6 @@ class PNG:
                         new_g = color_points[i][2]
                         new_b = color_points[i][3]
                         new_a = color_points[i][4]
-
                         output_a = new_a + current_a * (1 - new_a)
                         output_r = new_a/output_a * new_r + (1 - new_a) * current_a/output_a * current_r
                         output_g = new_a/output_a * new_g + (1 - new_a) * current_a/output_a * current_g
@@ -340,14 +382,11 @@ class PNG:
             g = vertex.screenSpace["g"]
             b = vertex.screenSpace["b"]
             a = vertex.screenSpace["a"]
-            print(x, y, pointSize)
             left = x - pointSize/2
             right = x + pointSize/2
             top = y - pointSize/2
             bottom = y + pointSize/2
             borders = [left, right, top , bottom]
-            print("primitives", pointSize)
-            print(borders)
             for id, _ in enumerate(borders):
                 if(id < 2): # left and right
                     borders[id] = max(0, borders[id])
@@ -359,8 +398,6 @@ class PNG:
                     borders[id] = math.ceil(borders[id])
                 else:
                     borders[id] = math.ceil(borders[id])-1
-            print("pixel space")
-            print(borders)
             [left, right, top, bottom] = borders
             for ys in range(top, bottom+1):
                 for xs in range(left, right+1):
@@ -441,6 +478,14 @@ class PNG:
         else:
             print("Please specify type correctly")
 
+    def initBlendingBuffer(self):
+        if(not self.enableAlphaBlending):
+            self.blendingBuffer = np.empty((self.h, self.w), dtype=object)
+            for i in range(self.h):
+                for j in range(self.w):
+                    self.blendingBuffer[i][j] = []
+            self.enableAlphaBlending = True
+
     def readKeyword(self, line):
         if(line == "\n" or line == " "):
             return
@@ -463,7 +508,9 @@ class PNG:
             g = self.current_rgba[1]
             b = self.current_rgba[2]
             a = self.current_rgba[3]
-            vertex = Vertex(x, y, z, w, r, g, b, a)
+            s = self.texcoord[0]
+            t = self.texcoord[1]
+            vertex = Vertex(x, y, z, w, r, g, b, a, s, t)
             self.vertexBuffer.append(vertex)
             # self.image.im.putpixel((x, y), (r, g, b, 255))
         elif(keyword == "rgb"):
@@ -492,12 +539,7 @@ class PNG:
                 g = self.gammaCorrect(g, type="storageToDisplay")
                 b = self.gammaCorrect(b, type="storageToDisplay")
             self.current_rgba = (r, g, b, a)
-            if(not self.enableAlphaBlending):
-                self.blendingBuffer = np.empty((self.h, self.w), dtype=object)
-                for i in range(self.h):
-                    for j in range(self.w):
-                        self.blendingBuffer[i][j] = []
-                self.enableAlphaBlending = True
+            self.initBlendingBuffer()
         elif(keyword == "tri"):
             triangle = Triangle()
             for id in info[1:4]:
@@ -547,7 +589,25 @@ class PNG:
             vertex.toScreenSpace(self.w, self.h)
             point = np.array([vertex, pointSize])
             self.points.append(point)
-                    
+        elif(keyword == "texture"):
+            self.texture = Image.open(info[1]).convert("RGBA")
+            self.text_w, self.text_h = self.texture.size
+            # print(self.texture.im.getpixel((0.05*self.text_w, 0.5*self.text_h)))
+        elif(keyword == "texcoord"):
+            self.enableTexture = True
+            self.texcoord[0] = float(info[1])
+            self.texcoord[1] = float(info[2])
+            if(self.enableSRGB):
+                self.initBlendingBuffer()
+        elif(keyword == "trit"):
+            triangle = Triangle(useTexture=True)
+            for id in info[1:4]:
+                id = int(id)
+                if(id < 0):
+                    triangle.addVertex(self.vertexBuffer[id])
+                elif(id > 0):
+                    triangle.addVertex(self.vertexBuffer[id-1])
+            self.tri.append(triangle)
             
 
         
