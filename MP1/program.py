@@ -5,7 +5,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-drawDebug = True
+drawDebug = False
 if(drawDebug):
     fig, ax = plt.subplots() 
 class Triangle:
@@ -265,9 +265,13 @@ class PNG:
         [new_s, new_t] = textcoords
         new_s *= self.text_w
         new_t *= self.text_h
-        new_s = math.floor(new_s)
-        new_t = math.floor(new_t)
-
+        new_s = round(new_s)
+        new_t = round(new_t)
+        if(new_s == self.text_w):
+            new_s = 0
+        if(new_t == self.text_h):
+            new_t = 0
+        # print(new_s, new_t)
         [r, g, b, a] = self.texture.getpixel((new_s, new_t))
         r /= 255
         g /= 255
@@ -423,16 +427,15 @@ class PNG:
                 for xs in range(left, right+1):
                     # print(ys, xs)
                     if(self.enableDepthBuffer):
-                        if(self.depthBuffer[int(ys)][int(xs)] != 1.0):
-                            print(z, self.depthBuffer[int(ys)][int(xs)])
                         if(z >= self.depthBuffer[int(ys)][int(xs)]):
                             continue
                         else:
                             self.depthBuffer[int(ys)][int(xs)] = z
                     self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput=True)
         
-        plt.axis('scaled')
-        plt.show()
+        if(drawDebug):
+            plt.axis('scaled')
+            plt.show()
 
     def fillPixels(self, xs, ys, r, g, b, a, srgb, fillOutput):
         if(fillOutput):
@@ -529,10 +532,10 @@ class PNG:
             self.h = int(info[2])
             self.outputFile = info[3]
             self.image = Image.new("RGBA", (self.w, self.h), (0,0,0,0))
-
-            for i in range(self.h):
-                for j in range(self.w):
-                    ax.add_patch(Rectangle((int(j), -int(i)-1), 1, 1, edgecolor = "black", fill=False))
+            if(drawDebug):
+                for i in range(self.h):
+                    for j in range(self.w):
+                        ax.add_patch(Rectangle((int(j), -int(i)-1), 1, 1, edgecolor = "black", fill=False))
             
 
         elif(keyword == "xyzw"):
