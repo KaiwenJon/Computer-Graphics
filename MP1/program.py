@@ -2,7 +2,12 @@ import sys
 from PIL import Image, ImageColor
 import numpy as np
 import math
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
+drawDebug = True
+if(drawDebug):
+    fig, ax = plt.subplots() 
 class Triangle:
     def __init__(self, useTexture=False):
         self.vertices = []
@@ -64,8 +69,8 @@ class Vertex:
     def toScreenSpace(self, width, height):
         assert (self.NDCSpace != None)
         self.screenSpace = {}
-        self.screenSpace["x"] = (self.NDCSpace["x"] + 1) * width/2
-        self.screenSpace["y"] = (self.NDCSpace["y"] + 1) * height/2
+        self.screenSpace["x"] = (self.NDCSpace["x"] + 1) * width/2  
+        self.screenSpace["y"] = (self.NDCSpace["y"] + 1) * height/2 
         self.screenSpace["z"] = (self.NDCSpace["z"] + 1) / 2 # I don't know why
         self.screenSpace["w"] = self.NDCSpace["w"]
         self.screenSpace["r"] = self.NDCSpace["r"]
@@ -77,9 +82,9 @@ class Vertex:
 
 
     def __str__(self):
-        print(self.clipSpace)
-        print(self.NDCSpace)
-        print(self.screenSpace)
+        print("clipSpace:\t", self.clipSpace)
+        print("NDCSpace:\t", self.NDCSpace)
+        print("screenSpace:\t", self.screenSpace)
         return ""
 
 
@@ -262,6 +267,7 @@ class PNG:
         new_t *= self.text_h
         new_s = math.floor(new_s)
         new_t = math.floor(new_t)
+
         [r, g, b, a] = self.texture.getpixel((new_s, new_t))
         r /= 255
         g /= 255
@@ -311,11 +317,22 @@ class PNG:
                     new_triangles = self.clipTriangle(tri, plane)
                     new_tri_list.extend(new_triangles)
                 self.tri = new_tri_list
-
+        def drawLine(vertex1, vertex2):
+            point1 = [vertex1.screenSpace["x"], vertex1.screenSpace["y"]]
+            point2 = [vertex2.screenSpace["x"], vertex2.screenSpace["y"]]
+            x_val = [point1[0], point2[0]]
+            y_val = [-point1[1], -point2[1]]
+            plt.plot(x_val, y_val, linestyle="-")
         for tri in self.tri:
             for vertex in tri.vertices:
                 vertex.toNDCSpace()
                 vertex.toScreenSpace(self.w, self.h)
+                print(vertex)
+            if(drawDebug):
+                drawLine(tri.vertices[0], tri.vertices[1])
+                drawLine(tri.vertices[1], tri.vertices[2])
+                drawLine(tri.vertices[2], tri.vertices[0])
+            # plt.show()
             if(self.enableCull):
                 orient = self.checkOrient(tri)
                 if(orient == "CW"):
@@ -347,7 +364,6 @@ class PNG:
                         self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r_under, g_under, b_under, a_under]))
                     self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
         if(self.enableAlphaBlending):
-            print("Blending!")
             # assert(self.enableSRGB == True)
             for ys in range(self.h):
                 for xs in range(self.w):
@@ -415,6 +431,8 @@ class PNG:
                             self.depthBuffer[int(ys)][int(xs)] = z
                     self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput=True)
         
+        plt.axis('scaled')
+        plt.show()
 
     def fillPixels(self, xs, ys, r, g, b, a, srgb, fillOutput):
         if(fillOutput):
@@ -422,6 +440,14 @@ class PNG:
                 r = self.gammaCorrect(r, type="displayToStorage")
                 g = self.gammaCorrect(g, type="displayToStorage")
                 b = self.gammaCorrect(b, type="displayToStorage")
+            if(drawDebug):
+                L = np.array([r, g, b, a])
+                L[abs(L)<1e-10] = 0
+                L[abs(L-1)<1e-10] = 1
+                r ,g ,b, a = L
+                # print(r, g, b, a)
+                # plt.scatter(int(xs), -int(ys), c=[(r, g, b, a)])
+                ax.add_patch(Rectangle((int(xs)-0.5, -int(ys)-0.5), 1, 1, facecolor = [r, g, b, a], fill=True))
             r *= 255
             g *= 255
             b *= 255
@@ -503,6 +529,12 @@ class PNG:
             self.h = int(info[2])
             self.outputFile = info[3]
             self.image = Image.new("RGBA", (self.w, self.h), (0,0,0,0))
+
+            for i in range(self.h):
+                for j in range(self.w):
+                    ax.add_patch(Rectangle((int(j), -int(i)-1), 1, 1, edgecolor = "black", fill=False))
+            
+
         elif(keyword == "xyzw"):
             x = float(info[1])
             y = float(info[2])
