@@ -99,6 +99,7 @@ class PNG:
         self.enableFsaa = False
         self.blendingBuffer = []
         self.largerImage = None
+        self.points = []
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -116,8 +117,6 @@ class PNG:
             id = 1
         if(pt1[id] > pt2[id]):
             pt1, pt2 = pt2, pt1
-        # print(pt1)
-        # print(pt2)
         delta = np.array([pt2[0] - pt1[0], pt2[1] - pt1[1]])
         if(delta[id] == 0):
             return
@@ -125,17 +124,8 @@ class PNG:
         e = math.ceil(pt1[id]) - pt1[id]
         o = e * s
         p = pt1 + o
-        # print("pt1", pt1)
-        # print("pt2", pt2)
-        # print("delta", delta)
-        # print(s[0]**2 + s[1]**2)
-        # print("s", s)
-        # print("e", e)
-        # print("o", o)
-        # print("p", p)
         while(p[id] < pt2[id]):
             pixelBuffer.append(p)
-            # print(p[id])
             p = p + s
 
     def DDA(self, triangle):
@@ -340,6 +330,51 @@ class PNG:
                     self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, srgb=True, fillOutput= not self.enableFsaa)
         if(self.enableFsaa):
             self.averageFsaa()
+
+        for point in self.points:
+            [vertex, pointSize] = point
+            x = vertex.screenSpace["x"]
+            y = vertex.screenSpace["y"]
+            z = vertex.screenSpace["z"]
+            r = vertex.screenSpace["r"]
+            g = vertex.screenSpace["g"]
+            b = vertex.screenSpace["b"]
+            a = vertex.screenSpace["a"]
+            print(x, y, pointSize)
+            left = x - pointSize/2
+            right = x + pointSize/2
+            top = y - pointSize/2
+            bottom = y + pointSize/2
+            borders = [left, right, top , bottom]
+            print("primitives", pointSize)
+            print(borders)
+            for id, _ in enumerate(borders):
+                if(id < 2): # left and right
+                    borders[id] = max(0, borders[id])
+                    borders[id] = min(borders[id], self.w)
+                else:
+                    borders[id] = max(0, borders[id])
+                    borders[id] = min(borders[id], self.h)
+                if(id % 2 == 0): # left and top
+                    borders[id] = math.ceil(borders[id])
+                else:
+                    borders[id] = math.ceil(borders[id])-1
+            print("pixel space")
+            print(borders)
+            [left, right, top, bottom] = borders
+            for ys in range(top, bottom+1):
+                for xs in range(left, right+1):
+                    # print(ys, xs)
+                    if(self.enableDepthBuffer):
+                        if(self.depthBuffer[int(ys)][int(xs)] != 1.0):
+                            print(z, self.depthBuffer[int(ys)][int(xs)])
+                        if(z >= self.depthBuffer[int(ys)][int(xs)]):
+                            continue
+                        else:
+                            self.depthBuffer[int(ys)][int(xs)] = z
+                    self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput=True)
+        
+
     def fillPixels(self, xs, ys, r, g, b, a, srgb, fillOutput):
         if(fillOutput):
             if(srgb):
@@ -474,7 +509,7 @@ class PNG:
             self.tri.append(triangle)
         elif(keyword == "depth"):
             self.enableDepthBuffer = True
-            self.depthBuffer = np.ones((self.h, self.w, 0))
+            self.depthBuffer = np.ones((self.h, self.w, 1))
         elif(keyword == "sRGB"):
             self.enableSRGB = True
         elif(keyword == "cull"):
@@ -501,7 +536,17 @@ class PNG:
             self.level = level
             self.largerImage = Image.new("RGBA", (self.w, self.h), (0,0,0,0))
             self.enableFsaa = True
-            
+        elif(keyword == "point"):
+            pointSize = float(info[1])
+            id = int(info[2])
+            if(id < 0):
+                vertex = self.vertexBuffer[id]
+            elif(id > 0):
+                vertex = self.vertexBuffer[id-1]
+            vertex.toNDCSpace()
+            vertex.toScreenSpace(self.w, self.h)
+            point = np.array([vertex, pointSize])
+            self.points.append(point)
                     
             
 
