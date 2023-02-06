@@ -306,10 +306,7 @@ class PNG:
                 # print(xs, ys, r, g, b)
                 if(not self.enableAlphaBlending):
                     # Don't do blending buffer
-                    if(self.enableFsaa):
-                        self.fillPixels(xs, ys, r, g, b, a, gamma_correct=False, buffer="largerImage")
-                    else:
-                        self.fillPixels(xs, ys, r, g, b, a, gamma_correct=self.enableSRGB, buffer="outputImage")
+                    self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput= not self.enableFsaa)
                 else:
                     # Put in PNG later
                     self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
@@ -340,15 +337,12 @@ class PNG:
                         current_r = output_r
                         current_g = output_g
                         current_b = output_b
-                    if(self.enableFsaa):
-                        self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, gamma_correct=False, buffer="largerImage")
-                    else:
-                        self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, gamma_correct=True, buffer="outputImage")
+                    self.fillPixels(xs, ys, current_r, current_g, current_b, current_a, srgb=True, fillOutput= not self.enableFsaa)
         if(self.enableFsaa):
             self.averageFsaa()
-    def fillPixels(self, xs, ys, r, g, b, a, gamma_correct, buffer):
-        if(buffer == "outputImage"):
-            if(gamma_correct):
+    def fillPixels(self, xs, ys, r, g, b, a, srgb, fillOutput):
+        if(fillOutput):
+            if(srgb):
                 r = self.gammaCorrect(r, type="displayToStorage")
                 g = self.gammaCorrect(g, type="displayToStorage")
                 b = self.gammaCorrect(b, type="displayToStorage")
@@ -357,8 +351,8 @@ class PNG:
             b *= 255
             a *= 255
             self.image.im.putpixel((int(xs), int(ys)), (int(r), int(g), int(b), int(a)))
-        elif(buffer == "largerImage"):
-            # No gamma correct
+        elif(not fillOutput):
+            # we will do gamma correct later
             r *= 255
             g *= 255
             b *= 255
@@ -369,7 +363,30 @@ class PNG:
     def averageFsaa(self):
         # USe the result in larger PNG, gamma correct, and put pixel in self.image
         # self.largerImage.getpixel((4, 6))
-        pass
+        output_w, output_h = self.image.size
+        for ys in range(output_h):
+            for xs in range(output_w):
+                r = 0
+                g = 0
+                b = 0
+                a = 0
+                sum_alpha = 0
+                for i in range(ys*self.level, ys*self.level + self.level):
+                    for j in range(xs*self.level, xs*self.level + self.level):
+                        alpha = self.largerImage.getpixel((j, i))[3]/255
+                        r += self.largerImage.getpixel((j, i))[0]/255 * alpha
+                        g += self.largerImage.getpixel((j, i))[1]/255 * alpha
+                        b += self.largerImage.getpixel((j, i))[2]/255 * alpha
+                        a += self.largerImage.getpixel((j, i))[3]/255 * alpha
+                        sum_alpha += alpha
+                if(sum_alpha == 0):
+                    continue
+                r /= sum_alpha
+                g /= sum_alpha
+                b /= sum_alpha
+                a /= self.level**2
+                self.fillPixels(xs, ys, r, g, b, a, srgb=True, fillOutput=True)
+        
 
     def gammaCorrect(self, color, type):
         if(type == "storageToDisplay"):
@@ -478,12 +495,12 @@ class PNG:
                 self.clipplane.append(plane)
         elif(keyword == "fsaa"):
             self.enableFsaa = True
-            level = info[1]
+            level = int(info[1])
             self.w *= level
             self.h *= level
             self.level = level
             self.largerImage = Image.new("RGBA", (self.w, self.h), (0,0,0,0))
-            self.enableAlphaBlending = True
+            self.enableFsaa = True
             
                     
             
