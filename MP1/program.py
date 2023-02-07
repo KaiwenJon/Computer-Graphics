@@ -111,6 +111,7 @@ class PNG:
         self.enableFsaa = False
         self.enableTexture = False
         self.enableDecals = False
+        self.enableBillBoard = False
         self.texcoord = np.array([0.0, 0.0])
         self.blendingBuffer = []
         self.largerImage = None
@@ -256,9 +257,28 @@ class PNG:
                 return [new_triangle1, new_triangle2]
             
     def getTextureRGBA(self, s, t):
+        # s *= self.text_w
+        # t *= self.text_h
+        # while(s < 0):
+        #     s += self.text_w
+        # while(s >= self.text_w):
+        #     s -= self.text_w
+        # while(t < 0):
+        #     t += self.text_h
+        # while(t >= self.text_h):
+        #     t -= self.text_h
+        # new_s = round(s)
+        # new_t = round(t)
+        # if(new_s == self.text_w):
+        #     new_s = 0
+        # if(new_t == self.text_h):
+        #     new_t = 0
+
+
         textcoords = [s, t]
+
         for id, _ in enumerate(textcoords):
-            while(textcoords[id] < 0):
+            while(textcoords[id] < -1):
                 textcoords[id] += 1
             while(textcoords[id] >= 1):
                 textcoords[id] -= 1
@@ -271,7 +291,10 @@ class PNG:
             new_s = 0
         if(new_t == self.text_h):
             new_t = 0
-        # print(new_s, new_t)
+        # test = self.texture.getpixel((self.text_w, 0))
+        # print(self.text_w)
+        # test2 = self.texture.getpixel((-257+self.text_w, 0))
+        # print(test, test2)
         [r, g, b, a] = self.texture.getpixel((new_s, new_t))
         r /= 255
         g /= 255
@@ -311,7 +334,55 @@ class PNG:
 
         return r, g, b, a
     
-    
+    def drawPoint(self):
+        # should be put before alpha blending if self.enableAlphaBlending
+        for point in self.points:
+            [vertex, pointSize, useTexture] = point
+            x = vertex.screenSpace["x"]
+            y = vertex.screenSpace["y"]
+            z = vertex.screenSpace["z"]
+            r = vertex.screenSpace["r"]
+            g = vertex.screenSpace["g"]
+            b = vertex.screenSpace["b"]
+            a = vertex.screenSpace["a"]
+            left = x - pointSize/2
+            right = x + pointSize/2
+            top = y - pointSize/2
+            bottom = y + pointSize/2
+            borders = [left, right, top , bottom]
+            for id, _ in enumerate(borders):
+                if(id < 2): # left and right
+                    borders[id] = max(0, borders[id])
+                    borders[id] = min(borders[id], self.w)
+                else:
+                    borders[id] = max(0, borders[id])
+                    borders[id] = min(borders[id], self.h)
+                if(id % 2 == 0): # left and top
+                    borders[id] = math.ceil(borders[id])
+                else:
+                    borders[id] = math.ceil(borders[id])-1
+            [left, right, top, bottom] = borders
+            s = 0.0
+            t = 0.0
+            for ys in range(top, bottom+1):
+                for xs in range(left, right+1):
+                    # print(ys, xs)
+                    if(self.enableDepthBuffer):
+                        if(z >= self.depthBuffer[int(ys)][int(xs)]):
+                            continue
+                        else:
+                            self.depthBuffer[int(ys)][int(xs)] = z
+                    
+                    # Refetch rgba if enalbeBillboard
+                    if(useTexture == True):
+                        s = (xs-(x-pointSize/2))/pointSize
+                        t = (ys-(y-pointSize/2))/pointSize
+                        r, g, b, a = self.getTextureRGBA(s=s, t=t)
+                    
+                    if(not self.enableAlphaBlending):
+                        self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput=True)
+                    else:
+                        self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
     def draw(self):
         if(len(self.clipplane) != 0):
             for plane in self.clipplane:
@@ -331,7 +402,6 @@ class PNG:
             for vertex in tri.vertices:
                 vertex.toNDCSpace()
                 vertex.toScreenSpace(self.w, self.h)
-                print(vertex)
             if(drawDebug):
                 drawLine(tri.vertices[0], tri.vertices[1])
                 drawLine(tri.vertices[1], tri.vertices[2])
@@ -341,7 +411,6 @@ class PNG:
                 orient = self.checkOrient(tri)
                 if(orient == "CW"):
                     continue
-            print(tri)
                 # print(vertex)
             pixels = self.DDA(tri)
             for pixel in pixels:
@@ -367,6 +436,9 @@ class PNG:
                         r_under, g_under, b_under, a_under = self.getRGBAOnScreen(tri=tri, xs=xs, ys=ys, useTexture=False)
                         self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r_under, g_under, b_under, a_under]))
                     self.blendingBuffer[int(ys)][int(xs)].append(np.array([z ,r, g, b, a]))
+        
+        self.drawPoint()
+
         if(self.enableAlphaBlending):
             # assert(self.enableSRGB == True)
             for ys in range(self.h):
@@ -397,42 +469,6 @@ class PNG:
         if(self.enableFsaa):
             self.averageFsaa()
 
-        for point in self.points:
-            [vertex, pointSize] = point
-            x = vertex.screenSpace["x"]
-            y = vertex.screenSpace["y"]
-            z = vertex.screenSpace["z"]
-            r = vertex.screenSpace["r"]
-            g = vertex.screenSpace["g"]
-            b = vertex.screenSpace["b"]
-            a = vertex.screenSpace["a"]
-            left = x - pointSize/2
-            right = x + pointSize/2
-            top = y - pointSize/2
-            bottom = y + pointSize/2
-            borders = [left, right, top , bottom]
-            for id, _ in enumerate(borders):
-                if(id < 2): # left and right
-                    borders[id] = max(0, borders[id])
-                    borders[id] = min(borders[id], self.w)
-                else:
-                    borders[id] = max(0, borders[id])
-                    borders[id] = min(borders[id], self.h)
-                if(id % 2 == 0): # left and top
-                    borders[id] = math.ceil(borders[id])
-                else:
-                    borders[id] = math.ceil(borders[id])-1
-            [left, right, top, bottom] = borders
-            for ys in range(top, bottom+1):
-                for xs in range(left, right+1):
-                    # print(ys, xs)
-                    if(self.enableDepthBuffer):
-                        if(z >= self.depthBuffer[int(ys)][int(xs)]):
-                            continue
-                        else:
-                            self.depthBuffer[int(ys)][int(xs)] = z
-                    self.fillPixels(xs, ys, r, g, b, a, srgb=self.enableSRGB, fillOutput=True)
-        
         if(drawDebug):
             plt.axis('scaled')
             plt.show()
@@ -525,7 +561,6 @@ class PNG:
         if(line[-1:] == "\n"):
             line = line[:-1]
         info = line.split()
-        print(info)
         keyword = info[0]
         if(keyword == "png"):
             self.w = int(info[1])
@@ -617,7 +652,7 @@ class PNG:
             self.level = level
             self.largerImage = Image.new("RGBA", (self.w, self.h), (0,0,0,0))
             self.enableFsaa = True
-        elif(keyword == "point"):
+        elif(keyword == "point" or keyword == "billboard"):
             pointSize = float(info[1])
             id = int(info[2])
             if(id < 0):
@@ -626,7 +661,13 @@ class PNG:
                 vertex = self.vertexBuffer[id-1]
             vertex.toNDCSpace()
             vertex.toScreenSpace(self.w, self.h)
-            point = np.array([vertex, pointSize])
+            if(keyword == "billboard"):
+                useTexture = True
+                self.enableBillBoard = True
+                self.initBlendingBuffer()
+            elif(keyword == "point"):
+                useTexture = False
+            point = np.array([vertex, pointSize, useTexture])
             self.points.append(point)
         elif(keyword == "texture"):
             self.texture = Image.open(info[1]).convert("RGBA")
@@ -650,6 +691,7 @@ class PNG:
         elif(keyword == "decals"):
             self.enableDecals = True
             self.initBlendingBuffer()
+        
             
 
         
@@ -658,6 +700,14 @@ if __name__ == '__main__':
     inputFile = sys.argv[1]
     if(inputFile == 'implemented.txt'):
         print("Multiple files detected.")
+        with open(inputFile) as f:
+            files = f.readlines()
+            for file in files:
+                if(file[-1:] == "\n"):
+                    file = file[:-1]
+                png = PNG(inputFile=file)
+    elif(inputFile == 'implemented_test.txt'):
+        print("Testing...Multiple files detected.")
         with open(inputFile) as f:
             files = f.readlines()
             for file in files:

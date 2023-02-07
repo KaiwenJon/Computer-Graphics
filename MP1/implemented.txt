@@ -16,3 +16,4 @@ mp1req2.txt
 mp1rgba.txt
 mp1srgb.txt
 mp1texture.txt
+mp1billboard.txt
