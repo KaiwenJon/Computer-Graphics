@@ -10,15 +10,25 @@
  * Fills the screen with Illini Orange
  */
 function draw1(milliseconds) {
-    window.m = m4rotX(milliseconds/1000)
-    window.v = m4view([1,2,3], [0,0,0], [0,1,0])
+    seconds = milliseconds/1000
+    // window.m = IdentityMatrix
+    // camera_pos = [0, 0, 1.5, 1]
+    // camera_pos = m4mul(m4trans(0, 0, Math.sin(seconds)+1), camera_pos)
+    // camera_pos = m4mul(m4rotY(seconds), camera_pos) // in world coordinate
+    // window.v = m4view(camera_pos.slice(0, 3), [0, 0, 0], [0, 1, 0])
 
-    gl.clearColor(1, 0.373, 1, 1)
+    window.m = m4rotY(seconds)
+    camera_pos = [0, 0, 1.5, 1]
+    camera_pos = m4mul(m4trans(1, 1, 0), camera_pos)
+    camera_pos = m4mul(m4trans(0, 0, Math.sin(seconds)+1), camera_pos)
+    window.v = m4view(camera_pos.slice(0, 3), [0, 0, 0], [0, 1, 0])
+    window.p = m4perspNegZ(0.1, 10, 1.5, c.width, c.height)
+
+    gl.clearColor(...IlliniBlue)
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     gl.useProgram(program)
     gl.bindVertexArray(geom.vao)
-    gl.uniform4fv(gl.getUniformLocation(program, 'color'), IlliniBlue)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
@@ -29,9 +39,20 @@ function draw1(milliseconds) {
  *
  * Fills the screen with Illini Blue
  */
-function draw2() {
+function draw2(milliseconds) {
+    seconds = milliseconds/1000
+    window.m = m4mul(m4rotZ(seconds*1.5), m4scale(Math.sin(seconds*2)/2+1, Math.sin(seconds*2)/2+1, 1))
+    window.m = m4mul(m4trans(Math.sin(seconds)/2, 0, 0), window.m)
+    window.v = IdentityMatrix
+    window.p = IdentityMatrix
+
     gl.clearColor(...IlliniBlue)
     gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(program)
+    gl.bindVertexArray(geom.vao)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+    gl.drawElements(geom.mode, geom.count, geom.type, 0)
     window.pending = requestAnimationFrame(draw2)
 }
 
@@ -44,7 +65,7 @@ function radioChanged() {
 
 /** Resizes the canvas to be a square that fits on the screen with at least 20% vertical padding */
 function resizeCanvas() {
-    let c = document.querySelector('canvas')
+    window.c = document.querySelector('canvas')
     c.width = c.parentElement.clientWidth
     c.height = document.documentElement.clientHeight * 0.8
     console.log(c.width, c.height)
@@ -52,8 +73,7 @@ function resizeCanvas() {
     else c.height = c.width
     if (window.gl) {
         gl.viewport(0,0, c.width, c.height)
-        window.p = m4perspNegZ(0.1, 10, 0.5, c.width, c.height)
-        
+        window.p = m4perspNegZ(0.1, 10, 1.5, c.width, c.height)
     }
 }
 
@@ -68,13 +88,14 @@ window.addEventListener('load',setup)
 
 const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
 const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
+const IdentityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])
 async function setup() {
     window.gl = document.querySelector('canvas').getContext('webgl2')
     resizeCanvas()
     let vs = await fetch('mp2-vertex.glsl').then(res => res.text())
     let fs = await fetch('mp2-fragment.glsl').then(res => res.text())
     window.program = compileAndLinkGLSL(vs, fs)
-    let logo = await fetch('logo.json').then(res => res.json())
+    let logo = await fetch('logo.json', {cache: "no-cache"}).then(res => res.json())
 
     window.geom = setupGeomery(logo)
     gl.enable(gl.DEPTH_TEST)
@@ -137,6 +158,9 @@ function setupGeomery(geom) {
 
     for(let name in geom.attributes) {
         let data = geom.attributes[name]
+        if(name === "vcolor"){
+            console.log(data, data[0])
+        }
         supplyDataBuffer(data, program, name)
     }
 
