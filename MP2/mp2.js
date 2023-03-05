@@ -31,6 +31,8 @@ function draw1(milliseconds) {
     gl.bindVertexArray(geom.vao)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+
+    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), false)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
     window.pending = requestAnimationFrame(draw1)
 }
@@ -52,18 +54,20 @@ function draw2(milliseconds) {
     gl.bindVertexArray(geom.vao)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+
+    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), false)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
     window.pending = requestAnimationFrame(draw2)
 }
 
 function draw3(milliseconds) {
     seconds = milliseconds/1000
-    window.m = m4rotY(seconds)
-    camera_pos = [0, 0, 1.5, 1]
-    camera_pos = m4mul(m4trans(1, 1, 0), camera_pos)
-    camera_pos = m4mul(m4trans(0, 0, Math.sin(seconds)+1), camera_pos)
-    window.v = m4view(camera_pos.slice(0, 3), [0, 0, 0], [0, 1, 0])
-    window.p = m4perspNegZ(0.1, 10, 1.5, c.width, c.height)
+    // window.m = m4rotY(seconds)
+    // camera_pos = [0, 0, 1.5, 1]
+    // camera_pos = m4mul(m4trans(1, 1, 0), camera_pos)
+    // camera_pos = m4mul(m4trans(0, 0, Math.sin(seconds)+1), camera_pos)
+    // window.v = m4view(camera_pos.slice(0, 3), [0, 0, 0], [0, 1, 0])
+    // window.p = m4perspNegZ(0.1, 10, 1.5, c.width, c.height)
 
     window.m = IdentityMatrix
     window.v = IdentityMatrix
@@ -96,8 +100,37 @@ function draw3(milliseconds) {
 
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), false)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
     window.pending = requestAnimationFrame(draw3)
+}
+
+function draw4(milliseconds) {
+    seconds = milliseconds/1000
+    window.m = IdentityMatrix
+    window.v = IdentityMatrix
+    window.p = IdentityMatrix
+
+    selfRotate = m4rotZ(seconds)
+    d = (Math.sin(seconds)*0.5+0.5)
+    offset1 = m4trans(0.2, 0.2, 0)
+    offset2 = m4trans(-0.2, -0.2, 0)
+
+    gl.clearColor(...IlliniBlue)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(program)
+    gl.bindVertexArray(geom.vao)
+
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'rotate'), false, selfRotate)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'offset1'), false, offset1)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'offset2'), false, offset2)
+    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), true)
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    window.pending = requestAnimationFrame(draw4)
 }
 
 
@@ -137,8 +170,8 @@ const IdentityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])
 async function setup() {
     window.gl = document.querySelector('canvas').getContext('webgl2')
     resizeCanvas()
-    let vs = await fetch('mp2-vertex.glsl').then(res => res.text())
-    let fs = await fetch('mp2-fragment.glsl').then(res => res.text())
+    let vs = await fetch('mp2-vertex.glsl', {cache: "no-cache"}).then(res => res.text())
+    let fs = await fetch('mp2-fragment.glsl', {cache: "no-cache"}).then(res => res.text())
     window.program = compileAndLinkGLSL(vs, fs)
     window.logo = await fetch('logo.json', {cache: "no-cache"}).then(res => res.json())
 
@@ -203,9 +236,6 @@ function setupGeomery(geom) {
 
     for(let name in geom.attributes) {
         let data = geom.attributes[name]
-        if(name === "vcolor"){
-            console.log(data, data[0])
-        }
         supplyDataBuffer(data, program, name)
     }
 
