@@ -56,6 +56,51 @@ function draw2(milliseconds) {
     window.pending = requestAnimationFrame(draw2)
 }
 
+function draw3(milliseconds) {
+    seconds = milliseconds/1000
+    window.m = m4rotY(seconds)
+    camera_pos = [0, 0, 1.5, 1]
+    camera_pos = m4mul(m4trans(1, 1, 0), camera_pos)
+    camera_pos = m4mul(m4trans(0, 0, Math.sin(seconds)+1), camera_pos)
+    window.v = m4view(camera_pos.slice(0, 3), [0, 0, 0], [0, 1, 0])
+    window.p = m4perspNegZ(0.1, 10, 1.5, c.width, c.height)
+
+    window.m = IdentityMatrix
+    window.v = IdentityMatrix
+    window.p = IdentityMatrix
+
+
+    gl.clearColor(...IlliniBlue)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(program)
+    gl.bindVertexArray(geom.vao)
+
+    vsIn = "position"
+    data = logo.attributes[vsIn]
+    mode = gl.DYNAMIC_DRAW
+    newData = []
+    offset = (Math.sin(seconds)*0.5+0.5)
+    scale = 0.5
+    data.forEach((item, index)=>{
+        if(index < 6){
+            item = m4mul(m4rotZ(seconds), [...item, 1]).slice(0, 3) 
+            newItem = [(item[0]+offset)*scale, (item[1]+offset)*scale, item[2]*scale]
+        }
+        else if(index < 12){
+            item = m4mul(m4rotZ(-seconds), [...item, 1]).slice(0, 3) 
+            newItem = [(item[0]-offset)*scale, (item[1]-offset)*scale, item[2]*scale]
+        }
+        newData.push(newItem)
+    })
+    supplyDataBuffer(newData, program, vsIn, mode)
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    window.pending = requestAnimationFrame(draw3)
+}
+
+
 /** Callback for when the radio button selection changes */
 function radioChanged() {
     let chosen = document.querySelector('input[name="example"]:checked').value
@@ -95,7 +140,7 @@ async function setup() {
     let vs = await fetch('mp2-vertex.glsl').then(res => res.text())
     let fs = await fetch('mp2-fragment.glsl').then(res => res.text())
     window.program = compileAndLinkGLSL(vs, fs)
-    let logo = await fetch('logo.json', {cache: "no-cache"}).then(res => res.json())
+    window.logo = await fetch('logo.json', {cache: "no-cache"}).then(res => res.json())
 
     window.geom = setupGeomery(logo)
     gl.enable(gl.DEPTH_TEST)
@@ -138,7 +183,7 @@ function compileAndLinkGLSL(vs_source, fs_source) {
 }
 
 function supplyDataBuffer(data, program, vsIn, mode) {
-    if (mode === undefined) mode = gl.STATIC_DRAW
+    if (mode === undefined) mode = gl.DYNAMIC_DRAW
     
     let buf = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, buf)
