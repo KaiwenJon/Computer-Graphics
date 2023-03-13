@@ -287,6 +287,7 @@ function draw4(milliseconds) {
     window.pending = requestAnimationFrame(draw4)
 }
 
+// helper function for collision: determine which side of the line the point is at
 function checkLine(point, line){
     // line: a, b, c (ax+by+c=0), always let a > 0,
     // then sign(ax0 + by0 + c) > 0 tells you that point is at right
@@ -322,6 +323,29 @@ function checkLine(point, line){
             console.log("No way.")
         }
     }
+}
+
+function draw6(milliseconds){
+    let seconds = milliseconds/1000
+    window.m = m4trans(Math.sin(seconds)/2, 0, 0)
+    window.v = IdentityMatrix
+    window.p = IdentityMatrix
+
+    footMove1 = m4mul(m4trans(Math.sin(seconds*10)/10, 0 ,0), m4trans(-0, 0, 0))
+
+    footMove2 = m4mul(m4trans(Math.sin((seconds+Math.PI/2)*10)/10, 0 ,0), m4trans(0, 0, 0))
+
+    gl.clearColor(1, 1, 1, 1)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(program)
+    gl.bindVertexArray(geom.vao)
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'footMove1'), false, footMove1)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'footMove2'), false, footMove2)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+    gl.drawElements(gl.LINES, geom.count, geom.type, 0)
+    window.pending = requestAnimationFrame(draw6)
 }
 
 function initCollision(){

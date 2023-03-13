@@ -6,18 +6,14 @@ out vec4 fcolor;
 uniform mat4 p;
 uniform mat4 mv;
 
-uniform mat4 rotate;
-uniform mat4 offset1;
-uniform mat4 offset2;
-uniform bool weirdDance;
+uniform mat4 footMove1;
+uniform mat4 footMove2;
 void main() {
-    if(weirdDance){
-        if(gl_VertexID < 6){
-            gl_Position = p * mv * offset1 * rotate * position;
-        }
-        else if(gl_VertexID < 12){
-            gl_Position = p * mv * offset2 * rotate * position;
-        }
+    if(gl_VertexID == 9){
+        gl_Position = p * mv * footMove1 * position;
+    }
+    else if(gl_VertexID == 10){
+        gl_Position = p * mv * footMove2 * position;
     }
     else{
         gl_Position = p * mv * position;
