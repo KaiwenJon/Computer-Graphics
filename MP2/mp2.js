@@ -9,7 +9,9 @@
  *
  * Fills the screen with Illini Orange
  */
-function draw1(milliseconds) {
+
+// Required: 3D Illini Logo self-rotating and camera zoomin
+function draw0(milliseconds) {
     seconds = milliseconds/1000
     // window.m = IdentityMatrix
     // camera_pos = [0, 0, 1.5, 1]
@@ -32,16 +34,17 @@ function draw1(milliseconds) {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
 
-    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), false)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
-    window.pending = requestAnimationFrame(draw1)
+    window.pending = requestAnimationFrame(draw0)
 }
 /**
  * Animation callback for the second display. See {draw1} for more.
  *
  * Fills the screen with Illini Blue
  */
-function draw2(milliseconds) {
+
+// Required: 2D Illini Logo moving, rotating, and scaling
+function draw1(milliseconds) {
     seconds = milliseconds/1000
     window.m = m4mul(m4rotZ(seconds*1.5), m4scale(Math.sin(seconds*2)/2+1, Math.sin(seconds*2)/2+1, 1))
     window.m = m4mul(m4trans(Math.sin(seconds)/2, 0, 0), window.m)
@@ -55,12 +58,12 @@ function draw2(milliseconds) {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
 
-    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), false)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
-    window.pending = requestAnimationFrame(draw2)
+    window.pending = requestAnimationFrame(draw1)
 }
 
-function draw3(milliseconds) {
+// Optional 1: CPU-based vertex movement
+function draw2(milliseconds) {
     seconds = milliseconds/1000
     // window.m = m4rotY(seconds)
     // camera_pos = [0, 0, 1.5, 1]
@@ -77,10 +80,9 @@ function draw3(milliseconds) {
     gl.clearColor(...IlliniBlue)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.useProgram(program)
-    gl.bindVertexArray(geom.vao)
 
     vsIn = "position"
-    data = logo.attributes[vsIn]
+    data = window.models[2].attributes[vsIn]
     mode = gl.DYNAMIC_DRAW
     newData = []
     offset = (Math.sin(seconds)*0.5+0.5)
@@ -98,14 +100,17 @@ function draw3(milliseconds) {
     })
     supplyDataBuffer(newData, program, vsIn, mode)
 
+
+    gl.bindVertexArray(geom.vao)
+
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
-    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), false)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
-    window.pending = requestAnimationFrame(draw3)
+    window.pending = requestAnimationFrame(draw2)
 }
 
-function draw4(milliseconds) {
+// Optional 2: GPU_based vertex movement
+function draw3(milliseconds) {
     seconds = milliseconds/1000
     window.m = IdentityMatrix
     window.v = IdentityMatrix
@@ -125,12 +130,11 @@ function draw4(milliseconds) {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'rotate'), false, selfRotate)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'offset1'), false, offset1)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'offset2'), false, offset2)
-    gl.uniform1i(gl.getUniformLocation(program, 'weirdDance'), true)
 
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
-    window.pending = requestAnimationFrame(draw4)
+    window.pending = requestAnimationFrame(draw3)
 }
 
 
@@ -138,7 +142,14 @@ function draw4(milliseconds) {
 function radioChanged() {
     let chosen = document.querySelector('input[name="example"]:checked').value
     cancelAnimationFrame(window.pending)
-    window.pending = requestAnimationFrame(window['draw'+chosen])
+
+    window.nowChosen = chosen
+    const [vs, fs] = window.shaders[window.nowChosen]
+    window.program = compileAndLinkGLSL(vs, fs)
+    const model = window.models[window.nowChosen]
+    window.geom = setupGeomery(model)
+
+    window.pending = requestAnimationFrame(window['draw'+nowChosen])
 }
 
 /** Resizes the canvas to be a square that fits on the screen with at least 20% vertical padding */
@@ -169,13 +180,31 @@ const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
 const IdentityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])
 async function setup() {
     window.gl = document.querySelector('canvas').getContext('webgl2')
+    window.nowChosen = document.querySelector('input[name="example"]:checked').value
     resizeCanvas()
-    let vs = await fetch('mp2-vertex.glsl', {cache: "no-cache"}).then(res => res.text())
-    let fs = await fetch('mp2-fragment.glsl', {cache: "no-cache"}).then(res => res.text())
-    window.program = compileAndLinkGLSL(vs, fs)
-    window.logo = await fetch('logo.json', {cache: "no-cache"}).then(res => res.json())
 
-    window.geom = setupGeomery(logo)
+    window.shaders = []
+    window.models = []
+    for(let i=0; i<8; i++){
+        let vs = await fetch('./shaders/mp2-vertex'+ i +'.glsl', {cache: "no-cache"}).then(res => res.text())
+        let fs = await fetch('./shaders/mp2-fragment'+ i +'.glsl', {cache: "no-cache"}).then(res => res.text())
+        window.shaders.push([vs, fs])
+
+        if(i < 4){
+            let model= await fetch('./models/model'+ '0' +'.json', {cache: "no-cache"}).then(res => res.json()) 
+            window.models.push(model)
+        }
+        else{
+            let model= await fetch('./models/model'+ i +'.json', {cache: "no-cache"}).then(res => res.json()) 
+            window.models.push(model)
+        }
+    }
+
+    const [vs, fs] = window.shaders[window.nowChosen]
+    window.program = compileAndLinkGLSL(vs, fs)
+
+    const model = window.models[window.nowChosen]
+    window.geom = setupGeomery(model)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -186,6 +215,7 @@ async function setup() {
     radioChanged()
 
 }
+// you can have multiple shaders. Compile and link everytime different radio button is chosen.
 function compileAndLinkGLSL(vs_source, fs_source) {
     let vs = gl.createShader(gl.VERTEX_SHADER)
     gl.shaderSource(vs, vs_source)
@@ -215,6 +245,11 @@ function compileAndLinkGLSL(vs_source, fs_source) {
     return program
 }
 
+// create a buffer object and bind that to target: gl.ARRAY_BUFFER
+// supply our actual data to gl.ARRAY_BUFFER
+// retrieve the location of input of vertex shader
+// supply data in the current buffer to loc, with a certain layout specified
+// note: there could be only one guy in the gl.ARRAY_BUFFER. Everyone should line up to use this spot to supply data to vsIn
 function supplyDataBuffer(data, program, vsIn, mode) {
     if (mode === undefined) mode = gl.DYNAMIC_DRAW
     
@@ -230,6 +265,9 @@ function supplyDataBuffer(data, program, vsIn, mode) {
     return buf;
 }
 
+// create a vao (you can create multiple vao corresponding to different vertex attribute configurations)
+// to use different vao, simply call gl.bindVertexArray before you call the draw call.
+// Then you can draw different models with different configs on the same canvas.
 function setupGeomery(geom) {
     var triangleArray = gl.createVertexArray()
     gl.bindVertexArray(triangleArray)
