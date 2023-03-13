@@ -372,43 +372,44 @@ function draw6(milliseconds){
 // Optional 6: Mouse response
 function draw7(milliseconds){
     let seconds = milliseconds/1000
-    if(mouseDown){
-        window.m = m4trans((mouseX - c.width/2)/c.width*2, (-mouseY + c.height/2)/c.height*2, 0)
-    }
-    else{
-        // collision detection
-        let bordersX = []
-        let bordersY = []
-        bordersX.push([1, 0, -1]) // x =  1
-        bordersX.push([1, 0,  1]) // x = -1
-        bordersY.push([0, 1, -1]) // y =  1
-        bordersY.push([0, 1,  1]) // y = -1
-        let hitBorderX = false
-        let hitBorderY = false
-        let offset = m4trans((releasePos[0] + instantVel[0]- c.width/2)/c.width*2, (-releasePos[1] - instantVel[1]+ c.height/2)/c.height*2, 0)
-        data.forEach((item, index)=>{
-            let newPosition = m4mul(offset, [...item, 1]).slice(0, 3)
-            let point2D = [newPosition[0], newPosition[1], 1]
-            if(checkLine(point2D, bordersX[0]) * checkLine(point2D, bordersX[1]) > 0){
-                // console.log("Hit!")
-                hitBorderX = true
-            }
-            if(checkLine(point2D, bordersY[0]) * checkLine(point2D, bordersY[1]) > 0){
-                // console.log("Hit!")
-                hitBorderY = true
-            }
-        })
-        if(hitBorderX){
-            instantVel = [-instantVel[0], instantVel[1], 0]
-        }
-        if(hitBorderY){
-            instantVel = [instantVel[0], -instantVel[1], 0]
-        }
+    instantVel[0] *= 0.99
+    instantVel[1] *= 0.99
+    logoPos[0] += instantVel[0]
+    logoPos[1] += instantVel[1]
+    let trans = m4trans((logoPos[0] - c.width/2)/c.width*2, (-logoPos[1] + c.height/2)/c.height*2, 0)
 
-        releasePos[0] += instantVel[0]
-        releasePos[1] += instantVel[1]
-        window.m = m4trans((releasePos[0] - c.width/2)/c.width*2, (-releasePos[1] + c.height/2)/c.height*2, 0)
+    // collision detection
+    let bordersX = []
+    let bordersY = []
+    bordersX.push([1, 0, -1]) // x =  1
+    bordersX.push([1, 0,  1]) // x = -1
+    bordersY.push([0, 1, -1]) // y =  1
+    bordersY.push([0, 1,  1]) // y = -1
+    let hitBorderX = false
+    let hitBorderY = false
+    data.forEach((item, index)=>{
+        let newPosition = m4mul(trans, [...item, 1]).slice(0, 3)
+        let point2D = [newPosition[0], newPosition[1], 1]
+        if(checkLine(point2D, bordersX[0]) * checkLine(point2D, bordersX[1]) > 0){
+            // console.log("Hit!")
+            hitBorderX = true
+        }
+        if(checkLine(point2D, bordersY[0]) * checkLine(point2D, bordersY[1]) > 0){
+            // console.log("Hit!")
+            hitBorderY = true
+        }
+    })
+    if(hitBorderX){
+        instantVel = [-instantVel[0], instantVel[1], 0]
     }
+    if(hitBorderY){
+        instantVel = [instantVel[0], -instantVel[1], 0]
+    }
+
+    logoPos[0] += instantVel[0]
+    logoPos[1] += instantVel[1]
+    window.m = m4trans((logoPos[0] - c.width/2)/c.width*2, (-logoPos[1] + c.height/2)/c.height*2, 0)
+    
     window.v = IdentityMatrix
     window.p = IdentityMatrix
     gl.clearColor(...IlliniBlue)
@@ -477,7 +478,7 @@ function resizeCanvas() {
     if (window.gl) {
         gl.viewport(0,0, c.width, c.height)
         console.log(c.width, c.height)
-        window.releasePos = [c.width/2, c.height/2]
+        window.logoPos = [c.width/2, c.height/2] // for mouse
         window.p = m4perspNegZ(0.1, 10, 1.5, c.width, c.height)
     }
 }
@@ -491,36 +492,55 @@ function resizeCanvas() {
  */
 window.addEventListener('load',setup)
 window.addEventListener('mousemove', mouseCoordinates)
-window.addEventListener('mousedown', (e)=>{
+window.addEventListener('mousedown', (event)=>{
     window.mouseDown = true
+    // logoPos = [c.width/2, c.height/2]
+    // instantVel = [0, 0]
+    timer = setInterval(function(){
+        // the function can do whatever you need it to
+        accel = [mouseX - logoPos[0], mouseY - logoPos[1]]
+        instantVel[0] += accel[0]*Math.abs(accel[0]*0.01)*0.001 
+        instantVel[1] += accel[1]*Math.abs(accel[0]*0.01)*0.001
+    }, 50);
 })
 window.addEventListener('mouseup', (e)=>{
     window.mouseDown = false
-    window.releasePos = [mouseX, mouseY]
-    window.instantVel = [mouseXBuffer[1] - mouseXBuffer[0], mouseYBuffer[1] - mouseYBuffer[0]]
+    clearInterval(timer); 
+    // window.releasePos = [mouseX, mouseY]
 })
+window.addEventListener('dblclick', (e)=>{
+    logoPos = [c.width/2, c.height/2]
+    console.log("CLIC@")
+    instantVel = [0, 0]
+})
+window.logoPos = [0, 0]
 window.mouseDown = false
 window.mouseX = 0
 window.mouseY = 0
-window.mouseXBuffer = []
-window.mouseYBuffer = []
-window.releasePos = [0, 0]
 window.instantVel = [0, 0]
 function mouseCoordinates(event){
+    window.mouseX = event.clientX
+    window.mouseY = event.clientY
     // console.log("pageX: ", event.pageX,
     // "pageY: ", event.pageY,
     // "clientX: ", event.clientX,
     // "clientY:", event.clientY)
-    window.mouseX = event.clientX
-    window.mouseY = event.clientY
-    mouseXBuffer.push(mouseX)
-    mouseYBuffer.push(mouseY)
-    if(mouseXBuffer.length > 2){
-        mouseXBuffer.shift()
-    }
-    if(mouseYBuffer.length > 2){
-        mouseYBuffer.shift()
-    }
+    // window.mouseX = event.clientX
+    // window.mouseY = event.clientY
+    // accel = [mouseX - logoPos[0], mouseY - logoPos[1]]
+    // instantVel[0] += accel[0]*0.0005
+    // instantVel[1] += accel[1]*0.0005
+    // console.log(instantVel)
+    // mouseXBuffer.push(mouseX)
+    // mouseYBuffer.push(mouseY)
+    // if(mouseXBuffer.length > 2){
+    //     mouseXBuffer.shift()
+    // }
+    // if(mouseYBuffer.length > 2){
+    //     mouseYBuffer.shift()
+    // }
+    // mouseVx = mouseXBuffer[1] - mouseXBuffer[0]
+    // mouseVy = mouseYBuffer[1] - mouseYBuffer[0]
 }
 const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
 const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
