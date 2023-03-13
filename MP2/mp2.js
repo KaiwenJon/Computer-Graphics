@@ -325,7 +325,7 @@ function checkLine(point, line){
     }
 }
 
-// Optional 4: Psychedelic: Didn't implement
+// Optional 4: Psychedelic
 function draw5(milliseconds){
     let seconds = milliseconds/1000
     window.m = IdentityMatrix
@@ -338,7 +338,8 @@ function draw5(milliseconds){
     gl.useProgram(program)
     gl.bindVertexArray(geom.vao)
 
-
+    gl.uniform1f(gl.getUniformLocation(program, 'u_time'), seconds)
+    gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), c.width, c.height)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
