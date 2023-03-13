@@ -325,6 +325,26 @@ function checkLine(point, line){
     }
 }
 
+// Optional 4: Psychedelic: Didn't implement
+function draw5(milliseconds){
+    let seconds = milliseconds/1000
+    window.m = IdentityMatrix
+    window.v = IdentityMatrix
+    window.p = IdentityMatrix
+
+
+    gl.clearColor(...IlliniBlue)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(program)
+    gl.bindVertexArray(geom.vao)
+
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    window.pending = requestAnimationFrame(draw5)
+}
+// Optional 5: Walking
 function draw6(milliseconds){
     let seconds = milliseconds/1000
     window.m = m4trans(Math.sin(seconds)/2, 0, 0)
@@ -348,6 +368,60 @@ function draw6(milliseconds){
     window.pending = requestAnimationFrame(draw6)
 }
 
+// Optional 6: Mouse response
+function draw7(milliseconds){
+    let seconds = milliseconds/1000
+    if(mouseDown){
+        window.m = m4trans((mouseX - c.width/2)/c.width*2, (-mouseY + c.height/2)/c.height*2, 0)
+    }
+    else{
+        // collision detection
+        let bordersX = []
+        let bordersY = []
+        bordersX.push([1, 0, -1]) // x =  1
+        bordersX.push([1, 0,  1]) // x = -1
+        bordersY.push([0, 1, -1]) // y =  1
+        bordersY.push([0, 1,  1]) // y = -1
+        let hitBorderX = false
+        let hitBorderY = false
+        let offset = m4trans((releasePos[0] + instantVel[0]- c.width/2)/c.width*2, (-releasePos[1] - instantVel[1]+ c.height/2)/c.height*2, 0)
+        data.forEach((item, index)=>{
+            let newPosition = m4mul(offset, [...item, 1]).slice(0, 3)
+            let point2D = [newPosition[0], newPosition[1], 1]
+            if(checkLine(point2D, bordersX[0]) * checkLine(point2D, bordersX[1]) > 0){
+                // console.log("Hit!")
+                hitBorderX = true
+            }
+            if(checkLine(point2D, bordersY[0]) * checkLine(point2D, bordersY[1]) > 0){
+                // console.log("Hit!")
+                hitBorderY = true
+            }
+        })
+        if(hitBorderX){
+            instantVel = [-instantVel[0], instantVel[1], 0]
+        }
+        if(hitBorderY){
+            instantVel = [instantVel[0], -instantVel[1], 0]
+        }
+
+        releasePos[0] += instantVel[0]
+        releasePos[1] += instantVel[1]
+        window.m = m4trans((releasePos[0] - c.width/2)/c.width*2, (-releasePos[1] + c.height/2)/c.height*2, 0)
+    }
+    window.v = IdentityMatrix
+    window.p = IdentityMatrix
+    gl.clearColor(...IlliniBlue)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(program)
+    gl.bindVertexArray(geom.vao)
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
+    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    window.pending = requestAnimationFrame(draw7)
+}
+
+// init 2 logo data for Collision
 function initCollision(){
     scale1 = 0.8
     scale2 = 0.4
@@ -385,6 +459,9 @@ function radioChanged() {
     if(nowChosen == 4){
         initCollision()
     }
+    if(nowChosen == 7){
+        window.data = window.models[7].attributes['position']
+    }
     window.pending = requestAnimationFrame(window['draw'+nowChosen])
 }
 
@@ -393,11 +470,13 @@ function resizeCanvas() {
     window.c = document.querySelector('canvas')
     c.width = c.parentElement.clientWidth
     c.height = document.documentElement.clientHeight * 0.8
-    console.log(c.width, c.height)
+    // console.log(c.width, c.height)
     if (c.width > c.height) c.width = c.height
     else c.height = c.width
     if (window.gl) {
         gl.viewport(0,0, c.width, c.height)
+        console.log(c.width, c.height)
+        window.releasePos = [c.width/2, c.height/2]
         window.p = m4perspNegZ(0.1, 10, 1.5, c.width, c.height)
     }
 }
@@ -410,7 +489,38 @@ function resizeCanvas() {
  * thus initializing the render.
  */
 window.addEventListener('load',setup)
-
+window.addEventListener('mousemove', mouseCoordinates)
+window.addEventListener('mousedown', (e)=>{
+    window.mouseDown = true
+})
+window.addEventListener('mouseup', (e)=>{
+    window.mouseDown = false
+    window.releasePos = [mouseX, mouseY]
+    window.instantVel = [mouseXBuffer[1] - mouseXBuffer[0], mouseYBuffer[1] - mouseYBuffer[0]]
+})
+window.mouseDown = false
+window.mouseX = 0
+window.mouseY = 0
+window.mouseXBuffer = []
+window.mouseYBuffer = []
+window.releasePos = [0, 0]
+window.instantVel = [0, 0]
+function mouseCoordinates(event){
+    // console.log("pageX: ", event.pageX,
+    // "pageY: ", event.pageY,
+    // "clientX: ", event.clientX,
+    // "clientY:", event.clientY)
+    window.mouseX = event.clientX
+    window.mouseY = event.clientY
+    mouseXBuffer.push(mouseX)
+    mouseYBuffer.push(mouseY)
+    if(mouseXBuffer.length > 2){
+        mouseXBuffer.shift()
+    }
+    if(mouseYBuffer.length > 2){
+        mouseYBuffer.shift()
+    }
+}
 const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
 const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
 const IdentityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])
