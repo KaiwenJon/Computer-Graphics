@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CS 418 Terrain project</title>
+<script src="scene-option-tree.js"></script><!-- handles controls -->
+<script src="math.js"></script>
+<script src="draw-call.js"></script>
+<script src="geom-setup.js"></script>
+
+<script>// configures controls
+/**
+ * Modify this object to chose what options you want in the control pane.
+ * Top-level entries become top-section radio buttons.
+ * Nested entries become lower-section inputs of various types.
+ */
+var controlOptions =
+{"terrain":
+    {"label":"Required: Terrain"
+    ,"options":
+      {"resolution":{"type":"number","default":100,"label":"Grid size"}
+      ,"slices":{"type":"number","default":100,"label":"Fractures"}
+      ,"smooth":{"type":"checkbox","default":true,"label":"Smooth shading"}
+      ,"erode":
+        {"type":"radio"
+        ,"options":
+          {"rough":"No Weathering"
+          ,"spheroid":"Spheroidal Weathering"
+          ,"drain":"Hydraulic drainage"
+          }
+        }
+      }
+    }
+  ,"torus":
+    {"label":"Optional: Torus objects"
+    ,"options":
+      {"r1":{"type":"number","default":1,"label":"Major radius"}
+      ,"r2":{"type":"number","default":0.25,"label":"Minor radius"}
+      ,"res1":{"type":"number","default":48,"label":"Number of rings"}
+      ,"res2":{"type":"number","default":24,"label":"Points per ring"}
+      }
+    }
+  }
+</script>
+
+
+<script>// Placeholder script; edit or move to separate file
+const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
+const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
+
+/**
+ * Resizes the canvas to completely fill the screen
+ */
+function fillScreen() {
+    let canvas = document.querySelector('canvas')
+    document.body.style.margin = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.width = canvas.clientWidth
+    canvas.height = canvas.clientHeight
+    canvas.style.width = ''
+    canvas.style.height = ''
+    // to do: update aspect ratio of projection matrix here
+    if (window.gl) {
+        gl.viewport(0,0, canvas.width, canvas.height)
+        window.p = m4perspNegZ(1,9, 1, canvas.width, canvas.height)
+        console.log(canvas.width, canvas.height)
+        gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    }
+}
+
+/**
+ * Compile, link, other option-independent setup
+ */
+async function setup(event) {
+    window.gl = document.querySelector('canvas').getContext('webgl2',
+        // optional configuration object: see https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+        {antialias: false, depth:true, preserveDrawingBuffer:true}
+    )
+    
+    let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
+    let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
+    window.program = compileAndLinkGLSL(vs, fs)
+
+    let model= await fetch('./models/monkey.json', {cache: "no-cache"}).then(res => res.json()) 
+    addNormals(model)
+    window.geom = setupGeomery(model)
+    gl.enable(gl.DEPTH_TEST)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+    // to do: more setup here
+    fillScreen()
+}
+
+/**
+ * Generate geometry, render the scene
+ */
+async function setupScene(scene, options) {
+    console.log("To do: render",scene,"with options",options)
+    window.pending = requestAnimationFrame(draw)
+}
+
+window.addEventListener('load', setup)
+window.addEventListener('resize', fillScreen)
+</script>
+
+
+
+<!-- DO NOT MODIFY anything below this line -->
+<style>
+    body { margin: 0; border: none; padding: 0; display: flex; }
+    .controls {
+        width: min(50%, 20em); padding: 1em;
+        flex: 0 0 min(50%, 20em);
+    }
+    .controls label { display: block; }
+    .display {
+        flex-grow: 1; height: 100vh;
+        line-height: 0rem;
+    }
+</style>
+</head>
+<body>
+    <div class="controls">
+        <form>
+        <div id="set1"></div>
+        <hr/>
+        <div id="set2"></div>
+        <hr/>
+        <input type="submit" value="Generate object"/>
+        </form>
+    </div>
+    <div class="display"><canvas width="500" height="500"></canvas></div>
+</body>
+</html>
