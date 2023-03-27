@@ -16,11 +16,11 @@
  */
 var controlOptions =
 {"terrain":
-    {"label":"Required: Terrain"
+    {"label":"Required and Optional: Terrain"
     ,"options":
-      {"resolution":{"type":"number","default":100,"label":"Grid size"}
-      ,"slices":{"type":"number","default":10,"label":"Fractures"}
-      ,"smooth":{"type":"checkbox","default":true,"label":"Smooth shading"}
+      {"resolution":{"type":"number","default":50,"label":"Grid size"}
+      ,"slices":{"type":"number","default":100,"label":"Fractures"}
+      ,"height_based":{"type":"checkbox","default":true,"label":"Height-based color ramp"}
       ,"erode":
         {"type":"radio"
         ,"options":
@@ -31,6 +31,7 @@ var controlOptions =
         }
       }
     }
+  
   ,"torus":
     {"label":"Optional: Torus objects"
     ,"options":
@@ -78,10 +79,6 @@ async function setup(event) {
         // optional configuration object: see https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
         {antialias: false, depth:true, preserveDrawingBuffer:true}
     )
-    
-    let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
-    let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
-    window.program = compileAndLinkGLSL(vs, fs)
 
     
     // let model= await fetch('./models/monkey.json', {cache: "no-cache"}).then(res => res.json()) 
@@ -101,11 +98,30 @@ async function setup(event) {
 async function setupScene(scene, options) {
     console.log("To do: render",scene,"with options",options)
     if(scene === "terrain"){
-      let terrain = makeGrid(options.resolution)
-      terrain = faultingTerrain(terrain, options.slices)
-      addNormals(terrain)
-      window.geom = setupGeomery(terrain)
-      window.pending = requestAnimationFrame(drawTerrain)
+      console.log(options.height_based)
+      if(options.height_based === true){
+        console.log("Height Based color!")
+        let vs = await fetch('./shaders/vertex_heightBased.glsl', {cache: "no-cache"}).then(res => res.text())
+        let fs = await fetch('./shaders/fragment_heightBased.glsl', {cache: "no-cache"}).then(res => res.text())
+        window.program = compileAndLinkGLSL(vs, fs)
+
+        let terrain = makeGrid(options.resolution)
+        terrain = faultingTerrain(terrain, options.slices)
+        addNormals(terrain)
+        window.geom = setupGeomery(terrain)
+        window.pending = requestAnimationFrame(drawTerrainHeightBased)
+      }
+      else{
+        let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
+        let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
+        window.program = compileAndLinkGLSL(vs, fs)
+
+        let terrain = makeGrid(options.resolution)
+        terrain = faultingTerrain(terrain, options.slices)
+        addNormals(terrain)
+        window.geom = setupGeomery(terrain)
+        window.pending = requestAnimationFrame(drawTerrain)
+      }
     }
 }
 
