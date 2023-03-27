@@ -63,7 +63,7 @@ function fillScreen() {
     // to do: update aspect ratio of projection matrix here
     if (window.gl) {
         gl.viewport(0,0, canvas.width, canvas.height)
-        window.p = m4perspNegZ(1,9, 1, canvas.width, canvas.height)
+        window.p = m4perspNegZ(0.1, 5, 1, canvas.width, canvas.height)
         console.log(canvas.width, canvas.height)
         gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -83,9 +83,10 @@ async function setup(event) {
     let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
     window.program = compileAndLinkGLSL(vs, fs)
 
-    let model= await fetch('./models/monkey.json', {cache: "no-cache"}).then(res => res.json()) 
-    addNormals(model)
-    window.geom = setupGeomery(model)
+    
+    // let model= await fetch('./models/monkey.json', {cache: "no-cache"}).then(res => res.json()) 
+    // addNormals(model)
+    // window.geom = setupGeomery(model)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -99,7 +100,13 @@ async function setup(event) {
  */
 async function setupScene(scene, options) {
     console.log("To do: render",scene,"with options",options)
-    window.pending = requestAnimationFrame(draw)
+    if(scene === "terrain"){
+      window.terrainRes = options.resolution
+      let terrain = makeGrid(options.resolution)
+      addNormals(terrain)
+      window.geom = setupGeomery(terrain)
+      window.pending = requestAnimationFrame(drawTerrain)
+    }
 }
 
 window.addEventListener('load', setup)

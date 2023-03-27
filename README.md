@@ -2,3 +2,5 @@
 
 python3 -m http.server
 http://localhost:8000/myfile.html
+
+ctrl + F5 to refresh

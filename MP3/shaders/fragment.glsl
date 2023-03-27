@@ -1,8 +1,8 @@
 #version 300 es
 precision highp float;
-uniform vec4 color;
 out vec4 fragColor;
 in vec3 outnormal;
+in vec4 outcolor;
 uniform vec3 lightdir;
 uniform vec3 halfway;
 uniform vec3 lightcolor;
@@ -12,6 +12,6 @@ void main() {
     float blinn = pow(max(0.0, dot(halfway, normal)), 150.0);
     float lambert = max(0.0, dot(lightdir, normal));
     fragColor = vec4(
-        (color.rgb * lightcolor * lambert) + vec3(blinn * lightcolor)/1.0, 
-        color.a);
+        (outcolor.rgb * lightcolor * lambert) + vec3(blinn * lightcolor)*10.0, 
+        outcolor.a);
 }

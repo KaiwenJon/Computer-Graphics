@@ -90,3 +90,38 @@ function addNormals(data) {
     for(let i=0; i<normals.length; i+=1) normals[i] = normalize(normals[i])
     data.attributes.normal = normals;
 }
+
+function makeGrid(resolution) {
+    var terrain =
+        {"attributes":
+            {"position":[]
+            ,"color":[]
+            },
+        "triangles":[]
+        }
+    for(let i=0; i<resolution; i++){
+        for(let j=0; j<resolution; j++){
+            terrain.attributes.position.push([i/(resolution-1), j/(resolution-1), 0])
+            if(i % 2 == 0){
+                terrain.attributes.color.push([1, 1, 1, 1])
+            }
+            else{
+                terrain.attributes.color.push([1, 0, 1, 1])
+            }
+            // if(i < resolution-1 && j < resolution-1){
+            //     terrain.triangles.push([i, i+resolution, i+1])
+            //     terrain.triangles.push([i+1, i+resolution, i+resolution+1])
+            // }
+        }
+    }
+    for(let i=0; i<resolution-1; i++){
+        for(let j=0; j<resolution-1; j++){
+            let index = i*resolution+j
+            terrain.triangles.push([index, index+resolution, index+1])
+            terrain.triangles.push([index+1, index+resolution, index+resolution+1])
+        }
+    }
+    console.log(terrain)
+
+    return terrain
+}
