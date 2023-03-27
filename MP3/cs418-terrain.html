@@ -19,7 +19,7 @@ var controlOptions =
     {"label":"Required: Terrain"
     ,"options":
       {"resolution":{"type":"number","default":100,"label":"Grid size"}
-      ,"slices":{"type":"number","default":100,"label":"Fractures"}
+      ,"slices":{"type":"number","default":10,"label":"Fractures"}
       ,"smooth":{"type":"checkbox","default":true,"label":"Smooth shading"}
       ,"erode":
         {"type":"radio"
@@ -101,8 +101,8 @@ async function setup(event) {
 async function setupScene(scene, options) {
     console.log("To do: render",scene,"with options",options)
     if(scene === "terrain"){
-      window.terrainRes = options.resolution
       let terrain = makeGrid(options.resolution)
+      terrain = faultingTerrain(terrain, options.slices)
       addNormals(terrain)
       window.geom = setupGeomery(terrain)
       window.pending = requestAnimationFrame(drawTerrain)

@@ -17,14 +17,14 @@ function drawTerrain(milliseconds) {
     let seconds = milliseconds / 1000;
     let s2 = Math.cos(seconds/2)-1
     
-    let eye = [1.2*Math.cos(s2),1.2*Math.sin(s2), 0.7] // camera point, in world coordinate
+    let eye = [1.2*Math.cos(seconds/2),1.2*Math.sin(seconds/2), 0.7] // camera point, in world coordinate
     window.m = m4trans(-0.5, -0.5, 0) // identity means assuming world origin is at model origin.
     window.v = m4view([...eye], [0,0,0], [0,0,1])
 
     const lightdir = normalize(new Float32Array([1, -1, 1]))//([0.8, -0.6, 0.0]) 
     const lightcolor = new Float32Array([1, 1, 1])
     const halfway = normalize(add(lightdir, normalize(eye)))
-    gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
+    gl.clearColor(0.8, 0.8, 0.8, 1) // f(...[1,2,3]) means f(1,2,3)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
     

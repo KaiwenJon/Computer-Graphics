@@ -91,6 +91,39 @@ function addNormals(data) {
     data.attributes.normal = normals;
 }
 
+function faultingTerrain(terrain, iteration){
+    // faulting method
+    minZ = 0
+    maxZ = 0
+    let offset = 0.01
+    for(let i=0; i<iteration; i++){
+        let point = [Math.random(), Math.random(), 0]
+        let normal = [Math.cos(Math.random()*Math.PI*2), Math.sin(Math.random()*Math.PI*2), 0]
+        // offset *= 0.999
+        terrain.attributes.position.forEach(([x, y, z], index, array)=>{
+            let dotProduct = dot(sub([x, y, 0], point), normal)
+            let r = Math.abs(dotProduct/mag(normal))
+            let R = 0.3
+            g = (r > R) ? 0 : Math.pow(1- r*r/R/R, 2)
+            if(dotProduct >=0){
+                let newZ = z + offset * g
+                array[index] = [x, y, newZ]
+                maxZ = Math.max(maxZ, newZ)
+            }
+            else{
+                let newZ = z - offset * g
+                array[index] = [x, y, newZ]
+                minZ = Math.min(minZ, newZ)
+            }
+        })
+    }
+    terrain.attributes.position.forEach(([x, y, z], index, array)=>{
+        let h = 0.3
+        array[index] = [x, y, (z-minZ)*h/(maxZ-minZ)-h/2]
+    })
+    return terrain
+
+}
 function makeGrid(resolution) {
     var terrain =
         {"attributes":
@@ -102,16 +135,8 @@ function makeGrid(resolution) {
     for(let i=0; i<resolution; i++){
         for(let j=0; j<resolution; j++){
             terrain.attributes.position.push([i/(resolution-1), j/(resolution-1), 0])
-            if(i % 2 == 0){
-                terrain.attributes.color.push([1, 1, 1, 1])
-            }
-            else{
-                terrain.attributes.color.push([1, 0, 1, 1])
-            }
-            // if(i < resolution-1 && j < resolution-1){
-            //     terrain.triangles.push([i, i+resolution, i+1])
-            //     terrain.triangles.push([i+1, i+resolution, i+resolution+1])
-            // }
+            terrain.attributes.color.push([0.6, 0.3, 0.1, 1])
+
         }
     }
     for(let i=0; i<resolution-1; i++){
