@@ -24,23 +24,13 @@ var controlOptions =
       ,"erode":
         {"type":"radio"
         ,"options":
-          {"rough":"No Weathering"
-          ,"spheroid":"Spheroidal Weathering"
-          ,"drain":"Hydraulic drainage"
+          {"rough":"No Weathering (Shiny)"
+          ,"spheroid":"Spheroidal Weathering (Shiny)"
           }
         }
       }
     }
-  
-  ,"torus":
-    {"label":"Optional: Torus objects"
-    ,"options":
-      {"r1":{"type":"number","default":1,"label":"Major radius"}
-      ,"r2":{"type":"number","default":0.25,"label":"Minor radius"}
-      ,"res1":{"type":"number","default":48,"label":"Number of rings"}
-      ,"res2":{"type":"number","default":24,"label":"Points per ring"}
-      }
-    }
+
   }
 </script>
 
@@ -98,30 +88,25 @@ async function setup(event) {
 async function setupScene(scene, options) {
     console.log("To do: render",scene,"with options",options)
     if(scene === "terrain"){
-      console.log(options.height_based)
       if(options.height_based === true){
         console.log("Height Based color!")
         let vs = await fetch('./shaders/vertex_heightBased.glsl', {cache: "no-cache"}).then(res => res.text())
         let fs = await fetch('./shaders/fragment_heightBased.glsl', {cache: "no-cache"}).then(res => res.text())
         window.program = compileAndLinkGLSL(vs, fs)
-
-        let terrain = makeGrid(options.resolution)
-        terrain = faultingTerrain(terrain, options.slices)
-        addNormals(terrain)
-        window.geom = setupGeomery(terrain)
-        window.pending = requestAnimationFrame(drawTerrainHeightBased)
       }
       else{
         let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
         let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
         window.program = compileAndLinkGLSL(vs, fs)
-
-        let terrain = makeGrid(options.resolution)
-        terrain = faultingTerrain(terrain, options.slices)
-        addNormals(terrain)
-        window.geom = setupGeomery(terrain)
-        window.pending = requestAnimationFrame(drawTerrain)
       }
+      let terrain = makeGrid(options.resolution)
+      terrain = faultingTerrain(terrain, options.slices)
+      if(options.erode == "spheroid"){
+        terrain = spheroidalWeathering(terrain, 4)
+      }
+      addNormals(terrain)
+      window.geom = setupGeomery(terrain)
+      window.pending = requestAnimationFrame(drawTerrain)
     }
 }
 
@@ -147,6 +132,8 @@ window.addEventListener('resize', fillScreen)
 </head>
 <body>
     <div class="controls">
+
+   Done Parts: Required + Shiny + Height-based + Spheroidal Weathering
         <form>
         <div id="set1"></div>
         <hr/>

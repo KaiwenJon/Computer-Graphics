@@ -1,3 +1,4 @@
+// compile and link GL, doesnt need to be changed.
 function compileAndLinkGLSL(vs_source, fs_source) {
     let vs = gl.createShader(gl.VERTEX_SHADER)
     gl.shaderSource(vs, vs_source)
@@ -27,6 +28,7 @@ function compileAndLinkGLSL(vs_source, fs_source) {
     return program
 }
 
+// set up data buffer using geom.attributes
 function supplyDataBuffer(data, program, vsIn, mode) {
     if (mode === undefined) mode = gl.DYNAMIC_DRAW
     
@@ -67,6 +69,7 @@ function setupGeomery(geom) {
     }
 }
 
+// after positions and triangles are specified, add normals and stick to same orientation.
 function addNormals(data) {
     let normals = new Array(data.attributes.position.length)
     for(let i=0; i<normals.length; i+=1) normals[i] = new Array(3).fill(0)
@@ -91,6 +94,119 @@ function addNormals(data) {
     data.attributes.normal = normals;
 }
 
+// for spheriod weathering: given a vertex, calculate the average Z of its neighbors.
+function getNeighborAverageZ(index, array){
+    let resolution = Math.sqrt(array.length)
+    let neighborSumZ = 0
+    if(index == 0){
+        // top left corner
+        neighborSumZ += array[index+1][2]
+        neighborSumZ += array[index+resolution][2]
+        neighborSumZ += array[index+resolution+1][2]
+        neighborSumZ /= 3
+    }
+    else if(index == resolution - 1){
+        // top right corner
+        neighborSumZ += array[index-1][2]
+        neighborSumZ += array[index+resolution][2]
+        neighborSumZ += array[index+resolution-1][2]
+        neighborSumZ /= 3
+    }
+    else if(index == resolution * (resolution - 1)){
+        // bottom left corner
+        neighborSumZ += array[index+1][2]
+        neighborSumZ += array[index-resolution+1][2]
+        neighborSumZ += array[index-resolution][2]
+        neighborSumZ /= 3
+    }
+    else if(index == resolution * resolution - 1){
+        // bottom right corner
+        neighborSumZ += array[index-1][2]
+        neighborSumZ += array[index-resolution][2]
+        neighborSumZ += array[index-resolution-1][2]
+        neighborSumZ /= 3
+    }
+    else if(index < resolution){
+        // top row
+        neighborSumZ += array[index-1][2]
+        neighborSumZ += array[index+1][2]
+        neighborSumZ += array[index+resolution][2]
+        neighborSumZ += array[index+resolution-1][2]
+        neighborSumZ += array[index+resolution+1][2]
+        neighborSumZ /= 5
+    }
+    else if(index >= resolution * (resolution-1)){
+        // bottom row
+        neighborSumZ += array[index-1][2]
+        neighborSumZ += array[index+1][2]
+        neighborSumZ += array[index-resolution][2]
+        neighborSumZ += array[index-resolution-1][2]
+        neighborSumZ += array[index-resolution+1][2]
+        neighborSumZ /= 5
+    }
+    else if(index % resolution == 0){
+        // left col
+        neighborSumZ += array[index+1][2]
+        neighborSumZ += array[index-resolution][2]
+        neighborSumZ += array[index+resolution][2]
+        neighborSumZ += array[index-resolution+1][2]
+        neighborSumZ += array[index+resolution+1][2]
+        neighborSumZ /= 5
+    }
+    else if(index % resolution == (resolution-1)){
+        // right col
+        neighborSumZ += array[index-1][2]
+        neighborSumZ += array[index-resolution][2]
+        neighborSumZ += array[index+resolution][2]
+        neighborSumZ += array[index-resolution-1][2]
+        neighborSumZ += array[index+resolution-1][2]
+        neighborSumZ /= 5
+
+    }
+    else{
+        // middle
+        neighborSumZ += array[index-1][2]
+        neighborSumZ += array[index+1][2]
+        neighborSumZ += array[index-resolution][2]
+        neighborSumZ += array[index+resolution][2]
+        neighborSumZ += array[index-resolution-1][2]
+        neighborSumZ += array[index-resolution+1][2]
+        neighborSumZ += array[index+resolution-1][2]
+        neighborSumZ += array[index+resolution+1][2]
+        neighborSumZ /= 8
+    }
+    return neighborSumZ
+}
+
+// spehrodal weathering
+function spheroidalWeathering(terrain, iteration){
+    for(let i=0; i<iteration; i++){
+        newPosition = []
+        terrain.attributes.position.forEach(([x, y, z], index, array)=>{
+            let neighborAverageZ = getNeighborAverageZ(index, array)
+            let weight = 0.2
+            let newZ = (1-weight) * z + weight * neighborAverageZ
+            newPosition.push([x, y, newZ])
+        })
+        terrain.attributes.position = newPosition
+    }
+    return terrain
+}
+
+// function hydraulicErosion(terrain, iteration){
+//     terrain.waterVolume = []
+//     terrain.sediment = []
+//     terrain.attributes.position.forEach(([x, y, z], index, array)=>{
+//         let neighborAverageZ = getNeighborAverageZ(index, array)
+//         let weight = 0.2
+//         let newZ = (1-weight) * z + weight * neighborAverageZ
+//         newPosition.push([x, y, newZ])
+//     })
+//     return terrain
+// }
+
+
+// Faulting method to generate geom
 function faultingTerrain(terrain, iteration){
     // faulting method
     minZ = 0
@@ -124,6 +240,8 @@ function faultingTerrain(terrain, iteration){
     return terrain
 
 }
+
+// init: make resolution * resolution grid
 function makeGrid(resolution) {
     var terrain =
         {"attributes":
@@ -146,7 +264,6 @@ function makeGrid(resolution) {
             terrain.triangles.push([index+1, index+resolution, index+resolution+1])
         }
     }
-    console.log(terrain)
 
     return terrain
 }
