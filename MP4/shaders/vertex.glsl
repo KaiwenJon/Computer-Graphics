@@ -2,6 +2,10 @@
 in vec4 position;
 in vec3 normal;
 in vec4 color;
+
+in vec2 aTexCoord;
+out vec2 vTexCoord;
+
 out vec3 outnormal;
 out vec4 outcolor;
 uniform mat4 p;
@@ -11,4 +15,5 @@ void main() {
     gl_Position = p * mv * position;
     outnormal = mat3(m) * normal; // will not work for non-unform scaling; otherwise it should be fine.
     outcolor = color;
+    vTexCoord = aTexCoord;
 }

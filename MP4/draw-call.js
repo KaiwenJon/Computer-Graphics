@@ -56,7 +56,9 @@ function drawTerrain(milliseconds) {
     gl.useProgram(program)
     
     gl.bindVertexArray(geom.vao)
-    
+
+    let bindPoint = gl.getUniformLocation(program, 'image')
+    gl.uniform1i(bindPoint, 0)
 
     gl.uniform3fv(gl.getUniformLocation(program, 'lightdir'), lightdir)
     gl.uniform3fv(gl.getUniformLocation(program, 'halfway'), halfway)

@@ -234,7 +234,7 @@ function faultingTerrain(terrain, iteration){
         })
     }
     terrain.attributes.position.forEach(([x, y, z], index, array)=>{
-        let h = 0.3
+        let h = 0.2
         array[index] = [x, y, (z-minZ)*h/(maxZ-minZ)-h/2]
     })
     return terrain
@@ -247,6 +247,7 @@ function makeGrid(resolution) {
         {"attributes":
             {"position":[]
             ,"color":[]
+            ,"aTexCoord":[]
             },
         "triangles":[]
         }
@@ -254,7 +255,7 @@ function makeGrid(resolution) {
         for(let j=0; j<resolution; j++){
             terrain.attributes.position.push([i/(resolution-1), j/(resolution-1), 0])
             terrain.attributes.color.push([0.6, 0.3, 0.1, 1])
-
+            terrain.attributes.aTexCoord.push([i/(resolution-1), j/(resolution-1), 0])
         }
     }
     for(let i=0; i<resolution-1; i++){
@@ -266,4 +267,25 @@ function makeGrid(resolution) {
     }
 
     return terrain
+}
+
+
+function loadTexture(){
+    let slot = 0; // or a larger integer if this isn't the only texture
+    let texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + slot);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(
+        gl.TEXTURE_2D, // destination slot
+        0, // the mipmap level this data provides; almost always 0
+        gl.RGBA, // how to store it in graphics memory
+        gl.RGBA, // how it is stored in the image object
+        gl.UNSIGNED_BYTE, // size of a single pixel-color in HTML
+        window.img, // source data
+    );
+    gl.generateMipmap(gl.TEXTURE_2D)
 }
