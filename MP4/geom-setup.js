@@ -289,25 +289,38 @@ function loadTexture(){
     );
     gl.generateMipmap(gl.TEXTURE_2D)
 }
-function getMaxRange(objText){
+function initialScan(objText){
     const lines = objText.split('\n')
-    let maxValue = 0
+    let maxPosValue = 0
+    let normal_enabled = false
+    let texture_enabled = false
+    let has_multiple_f = false
     for(let i=0; i<lines.length; i++){
         const line = lines[i]
         const words = line.split(/\s+/)
         const keyword = words[0]
         if(keyword === 'v'){
             let pos = (words.slice(1, 4)).map(parseFloat)
-            maxValue = Math.max(maxValue, Math.max(...pos))
+            maxPosValue = Math.max(maxPosValue, Math.max(...pos))
+        }
+        else if(keyword === 'vn'){
+            normal_enabled = true
+        }
+        else if(keyword === 'vt'){
+            texture_enabled = true
+        }
+        else if(keyword === 'f'){
+            if(words.length > 4){
+                has_multiple_f = true
+            }
         }
     }
-    return maxValue
+    return [maxPosValue, normal_enabled, texture_enabled, has_multiple_f]
 }
 async function readOBJFile(objText){
     if(objText == null){
         return
     }
-    let color_enabled = false
     var model =
         {"attributes":
             {"position":[]
@@ -315,7 +328,7 @@ async function readOBJFile(objText){
             },
         "triangles":[]
         }
-    const maxPosValue = getMaxRange(objText)
+    const [maxPosValue, normal_enabled, texture_enabled, has_multiple_f] = initialScan(objText)
     const lines = objText.split('\n')
     for(let i=0; i<lines.length; i++){
         const line = lines[i]
@@ -324,7 +337,6 @@ async function readOBJFile(objText){
         if(keyword === 'v'){
             let color = null
             if(words.length > 4){
-                color_enabled = true
                 color = (words.slice(4, 7)).map(parseFloat)
             }
             else{
@@ -339,9 +351,18 @@ async function readOBJFile(objText){
         }
         else if (keyword === 'f'){
             model.triangles.push((words.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
+            if(has_multiple_f){
+                for(let i=0; i<words.length - 4; i++){
+                    tri = []
+                    tri.push(words[1])
+                    tri.push(words[i+3])
+                    tri.push(words[i+4])
+                    model.triangles.push(tri.map((str) => parseInt(str, 10) - 1))
+                }
+            }
         }
     }
-
+    console.log(model.triangles)
     let vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
     let fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
     window.programOBJ = compileAndLinkGLSL(vs, fs)
