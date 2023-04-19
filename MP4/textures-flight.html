@@ -10,9 +10,6 @@
 <script>// Placeholder script; edit or move to separate file
 const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
 const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
-window.img = new Image()
-img.crossOrigin = 'anonymous';
-img.src = './texture/farm.jpg';
 // img.addEventListener('load', (event) => {
 //   console.log(img.width, img.height)
 // })
@@ -62,6 +59,16 @@ async function setup(event) {
             return null
         }
     })
+
+    window.img = new Image()
+
+    window.img.onload =()=>{
+        loadTexture(window.img, 0)
+    }
+    img.crossOrigin = 'anonymous';
+    img.src = './texture/farm.jpg';
+
+
     await readOBJFile(objText)
     // if(modelOBJ !== null){
     //     let vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
@@ -76,7 +83,6 @@ async function setup(event) {
     terrain = faultingTerrain(terrain, 100)
     terrain = spheroidalWeathering(terrain, 4)
     addNormals(terrain)
-    let texture0 = loadTexture(window.img, 0)
     window.geom = setupGeomery(terrain, program)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.BLEND)

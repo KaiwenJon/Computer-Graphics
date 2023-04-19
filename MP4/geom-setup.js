@@ -272,6 +272,7 @@ function makeGrid(resolution) {
 
 function loadTexture(img, slot){
     // let slot = 0; // or a larger integer if this isn't the only texture
+    console.log("load Texture", slot)
     let texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + slot);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -429,7 +430,7 @@ async function readOBJFile(objText){
             else{
                 // both are not enabled
                 model.triangles.push((words.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
-                if(has_multiple_f){
+                if(words.length > 4){
                     for(let i=0; i<words.length - 4; i++){
                         tri = []
                         tri.push(words[1])
@@ -490,12 +491,13 @@ async function readOBJFile(objText){
     }
     if(texture_enabled){
         window.imgOBJ = new Image()
+        window.imgOBJ.onload =()=>{
+            loadTexture(window.imgOBJ, 1)
+        }
         imgOBJ.crossOrigin = 'anonymous';
         imgOBJ.src = objFile.replace(/\.obj$/, ".jpg");
-        loadTexture(window.imgOBJ, 1)
     }
-
-
+    console.log("model obj:", model)
     window.programOBJ = compileAndLinkGLSL(vs, fs)
     window.geomOBJ = setupGeomery(model, programOBJ)
 }
