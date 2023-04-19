@@ -50,7 +50,7 @@ async function setup(event) {
     fillScreen()
     let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
     let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
-    let objFile = window.location.hash.substr(1)
+    window.objFile = window.location.hash.substr(1)
     if(objFile === ""){
         objFile = './example.obj'
     }

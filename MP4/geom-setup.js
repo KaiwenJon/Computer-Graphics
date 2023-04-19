@@ -332,11 +332,14 @@ async function readOBJFile(objText){
     const lines = objText.split('\n')
     let vnArray = []
     let vtArray = []
+    let vn_vt_lookup = {}
+    let vertexNum = 0
     for(let i=0; i<lines.length; i++){
         const line = lines[i]
         const words = line.split(/\s+/)
         const keyword = words[0]
         if(keyword === 'v'){
+            vertexNum += 1
             let color = null
             if(words.length > 4){
                 color = (words.slice(4, 7)).map(parseFloat)
@@ -355,7 +358,7 @@ async function readOBJFile(objText){
             vnArray.push((words.slice(1, 4)).map(parseFloat))
         }
         else if(keyword === 'vt'){
-            vtArray.push((words.slice(1, 4)).map(parseFloat))
+            vtArray.push((words.slice(1, 3)).map(parseFloat))
         }
         else if (keyword === 'f'){
             if(normal_enabled && texture_enabled){
@@ -363,9 +366,13 @@ async function readOBJFile(objText){
                 // add index buffer
                 indices = ['f']
                 for(let i=0; i<words.length-1; i++){
-                    indices.push(words[i+1].split('/')[0])
+                    const [ind, tex, norm] = words[i+1].split('/')
+                    if(!(ind in vn_vt_lookup)){
+                        vn_vt_lookup[ind] = [tex, norm]
+                    }
+                    indices.push(ind)
                 }
-                console.log(indices)
+                // console.log(indices)
                 model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
                 if(has_multiple_f){
                     for(let i=0; i<indices.length - 4; i++){
@@ -376,15 +383,20 @@ async function readOBJFile(objText){
                         model.triangles.push(tri.map((str) => parseInt(str, 10) - 1))
                     }
                 }
+                
             }
             else if(normal_enabled){
                 // only normal is enabled
                 // add index buffer
                 indices = ['f']
                 for(let i=0; i<words.length-1; i++){
-                    indices.push(words[i+1].split('//')[0])
+                    const [ind, norm] = words[i+1].split('//')
+                    if(!(ind in vn_vt_lookup)){
+                        vn_vt_lookup[ind] = [null, norm]
+                    }
+                    indices.push(ind)
                 }
-                console.log(indices)
+                // console.log(indices)
                 model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
                 if(has_multiple_f){
                     for(let i=0; i<indices.length - 4; i++){
@@ -401,9 +413,13 @@ async function readOBJFile(objText){
                 // add index buffer
                 indices = ['f']
                 for(let i=0; i<words.length-1; i++){
-                    indices.push(words[i+1].split('/')[0])
+                    const [ind, tex] = words[i+1].split('/')
+                    if(!(ind in vn_vt_lookup)){
+                        vn_vt_lookup[ind] = [tex, null]
+                    }
+                    indices.push(ind)
                 }
-                console.log(indices)
+                // console.log(indices)
                 model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
                 if(has_multiple_f){
                     for(let i=0; i<indices.length - 4; i++){
@@ -430,10 +446,56 @@ async function readOBJFile(objText){
             }
         }
     }
-    console.log(model.triangles)
-    let vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
-    let fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+    let vs = null
+    let fs = null
+    // console.log(vn_vt_lookup)
+    // Add Normal and texture buffer!
+    if(normal_enabled && texture_enabled){
+        // both are enabled
+        normals = []
+        textures = []
+        for(let i=0; i<vertexNum; i++){
+            let [tex, norm] = vn_vt_lookup[(i+1).toString()]
+            normals.push(vnArray[parseInt(norm)-1])
+            textures.push(vnArray[parseInt(tex)-1])
+            model.attributes.normal = normals
+            model.attributes.aTexCoord = textures
+        }
+        vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
+        fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
+    }
+    else if(normal_enabled){
+        // only normal is enabled
+        normals = []
+        for(let i=0; i<vertexNum; i++){
+            let [tex, norm] = vn_vt_lookup[(i+1).toString()]
+            normals.push(vnArray[parseInt(norm)-1])
+            model.attributes.normal = normals
+        }
+        vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+        fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+    }
+    else if(texture_enabled){
+        // only texture is enabled
+        textures = []
+        for(let i=0; i<vertexNum; i++){
+            let [tex, norm] = vn_vt_lookup[(i+1).toString()]
+            textures.push(vnArray[parseInt(tex)-1])
+            model.attributes.aTexCoord = textures
+        }
+        vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
+        fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
+        addNormals(model)
+    }
+    else{
+        // both are not enabled
+        vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+        fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text()) 
+        addNormals(model)
+    }
+    if(texture_enabled){
+        img.src = objFile.replace(/\.obj$/, ".jpg");
+    }
     window.programOBJ = compileAndLinkGLSL(vs, fs)
-    addNormals(model)
     window.geomOBJ = setupGeomery(model, programOBJ)
 }
