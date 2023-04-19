@@ -54,7 +54,6 @@ function drawTerrain(milliseconds) {
     gl.clearColor(0.8, 0.8, 0.8, 1) // f(...[1,2,3]) means f(1,2,3)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
-    
     gl.bindVertexArray(geom.vao)
 
     let bindPoint = gl.getUniformLocation(program, 'image')
@@ -69,9 +68,10 @@ function drawTerrain(milliseconds) {
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
 
     // Draw OBJ
-    if(window.modelOBJ !== null){
+    if(window.objText !== null){
         gl.useProgram(programOBJ)
-
+        let bindPoint = gl.getUniformLocation(programOBJ, 'image')
+        gl.uniform1i(bindPoint, 1)
         gl.bindVertexArray(geomOBJ.vao)
         gl.uniform3fv(gl.getUniformLocation(programOBJ, 'lightdir'), lightdir)
         gl.uniform3fv(gl.getUniformLocation(programOBJ, 'halfway'), halfway)

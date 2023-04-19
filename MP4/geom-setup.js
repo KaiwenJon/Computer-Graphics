@@ -270,8 +270,8 @@ function makeGrid(resolution) {
 }
 
 
-function loadTexture(){
-    let slot = 0; // or a larger integer if this isn't the only texture
+function loadTexture(img, slot){
+    // let slot = 0; // or a larger integer if this isn't the only texture
     let texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + slot);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -285,16 +285,16 @@ function loadTexture(){
         gl.RGBA, // how to store it in graphics memory
         gl.RGBA, // how it is stored in the image object
         gl.UNSIGNED_BYTE, // size of a single pixel-color in HTML
-        window.img, // source data
+        img, // source data
     );
     gl.generateMipmap(gl.TEXTURE_2D)
+    return slot
 }
 function initialScan(objText){
     const lines = objText.split('\n')
     let maxPosValue = 0
     let normal_enabled = false
     let texture_enabled = false
-    let has_multiple_f = false
     for(let i=0; i<lines.length; i++){
         const line = lines[i]
         const words = line.split(/\s+/)
@@ -309,13 +309,8 @@ function initialScan(objText){
         else if(keyword === 'vt'){
             texture_enabled = true
         }
-        else if(keyword === 'f'){
-            if(words.length > 4){
-                has_multiple_f = true
-            }
-        }
     }
-    return [maxPosValue, normal_enabled, texture_enabled, has_multiple_f]
+    return [maxPosValue, normal_enabled, texture_enabled]
 }
 async function readOBJFile(objText){
     if(objText == null){
@@ -328,7 +323,7 @@ async function readOBJFile(objText){
             },
         "triangles":[]
         }
-    const [maxPosValue, normal_enabled, texture_enabled, has_multiple_f] = initialScan(objText)
+    const [maxPosValue, normal_enabled, texture_enabled] = initialScan(objText)
     const lines = objText.split('\n')
     let vnArray = []
     let vtArray = []
@@ -374,7 +369,7 @@ async function readOBJFile(objText){
                 }
                 // console.log(indices)
                 model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
-                if(has_multiple_f){
+                if(indices.length > 4){
                     for(let i=0; i<indices.length - 4; i++){
                         tri = []
                         tri.push(indices[1])
@@ -398,7 +393,7 @@ async function readOBJFile(objText){
                 }
                 // console.log(indices)
                 model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
-                if(has_multiple_f){
+                if(indices.length > 4){
                     for(let i=0; i<indices.length - 4; i++){
                         tri = []
                         tri.push(indices[1])
@@ -421,7 +416,7 @@ async function readOBJFile(objText){
                 }
                 // console.log(indices)
                 model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
-                if(has_multiple_f){
+                if(indices.length > 4){
                     for(let i=0; i<indices.length - 4; i++){
                         tri = []
                         tri.push(indices[1])
@@ -494,8 +489,13 @@ async function readOBJFile(objText){
         addNormals(model)
     }
     if(texture_enabled){
-        img.src = objFile.replace(/\.obj$/, ".jpg");
+        window.imgOBJ = new Image()
+        imgOBJ.crossOrigin = 'anonymous';
+        imgOBJ.src = objFile.replace(/\.obj$/, ".jpg");
+        loadTexture(window.imgOBJ, 1)
     }
+
+
     window.programOBJ = compileAndLinkGLSL(vs, fs)
     window.geomOBJ = setupGeomery(model, programOBJ)
 }
