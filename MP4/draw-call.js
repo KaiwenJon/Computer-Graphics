@@ -68,5 +68,20 @@ function drawTerrain(milliseconds) {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'm'), false, m)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
 
+    // Draw OBJ
+    if(window.modelOBJ !== null){
+        gl.useProgram(programOBJ)
+
+        gl.bindVertexArray(geomOBJ.vao)
+        gl.uniform3fv(gl.getUniformLocation(programOBJ, 'lightdir'), lightdir)
+        gl.uniform3fv(gl.getUniformLocation(programOBJ, 'halfway'), halfway)
+        gl.uniform3fv(gl.getUniformLocation(programOBJ, 'lightcolor'), lightcolor)
+        gl.uniformMatrix4fv(gl.getUniformLocation(programOBJ, 'p'), false, p)
+        gl.uniformMatrix4fv(gl.getUniformLocation(programOBJ, 'mv'), false, m4mul(v,m))
+        gl.uniformMatrix4fv(gl.getUniformLocation(programOBJ, 'm'), false, m)
+
+        gl.drawElements(geomOBJ.mode, geomOBJ.count, geomOBJ.type, 0)
+    }
+
     window.pending = requestAnimationFrame(drawTerrain)
 }

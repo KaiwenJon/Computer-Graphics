@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <title>Textures and Flight</title>
 <script src="math.js"></script>
-<script src="draw-call.js"></script>
-<script src="geom-setup.js"></script>
+<script src="draw-call.js?2"></script>
+<script src="geom-setup.js?2"></script>
 
 <script>// Placeholder script; edit or move to separate file
 const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
@@ -50,17 +50,34 @@ async function setup(event) {
     fillScreen()
     let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
     let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
+    let objText = await fetch('./example.obj', {cache: "no-cache"}).then(res => {
+        if(res.ok){
+            return res.text()
+        }
+        else{
+            return null
+        }
+    })
+    window.modelOBJ = readOBJFile(objText)
+    if(modelOBJ !== null){
+        let vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+        let fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+        window.programOBJ = compileAndLinkGLSL(vs, fs)
+        addNormals(modelOBJ)
+        window.geomOBJ = setupGeomery(modelOBJ, programOBJ)
+    }
+
     window.program = compileAndLinkGLSL(vs, fs)
     let terrain = makeGrid(100)
     terrain = faultingTerrain(terrain, 100)
     terrain = spheroidalWeathering(terrain, 4)
     addNormals(terrain)
     loadTexture()
-    window.geom = setupGeomery(terrain)
+    window.geom = setupGeomery(terrain, program)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-    window.eye = [1.2, 1.2, 0.9, 1] // eye vector: changed only when camera rotates.
+    window.eye = [1.5, 1.5, 1.2, 1] // eye vector: changed only when camera rotates.
     window.v = m4view([...eye], [0,0,0], [0,0,1])
     window.pending = requestAnimationFrame(drawTerrain)
 }
@@ -75,6 +92,6 @@ window.addEventListener('keyup', event => keysBeingPressed[event.key] = false)
 
 </head>
 <body>
-    <div class="display"><canvas width="500" height="500"></canvas></div>
+    <div class="display"><canvas width="500" height="600"></canvas></div>
 </body>
 </html>

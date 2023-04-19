@@ -47,7 +47,7 @@ function supplyDataBuffer(data, program, vsIn, mode) {
 // create a vao (you can create multiple vao corresponding to different vertex attribute configurations)
 // to use different vao, simply call gl.bindVertexArray before you call the draw call.
 // Then you can draw different models with different configs on the same canvas.
-function setupGeomery(geom) {
+function setupGeomery(geom, program) {
     var triangleArray = gl.createVertexArray()
     gl.bindVertexArray(triangleArray)
 
@@ -288,4 +288,34 @@ function loadTexture(){
         window.img, // source data
     );
     gl.generateMipmap(gl.TEXTURE_2D)
+}
+
+function readOBJFile(objText){
+    if(objText == null){
+        return
+    }
+    var model =
+        {"attributes":
+            {"position":[]
+            ,"color":[]
+            },
+        "triangles":[]
+        }
+    const lines = objText.split('\n')
+    for(let i=0; i<lines.length; i++){
+        const line = lines[i]
+        const words = line.split(/\s+/)
+        const keyword = words[0]
+        if(keyword === 'v'){
+            let pos = (words.slice(1, 4)).map(parseFloat)
+            pos[pos.length-1] += 0.2
+            model.attributes.position.push(pos)
+            model.attributes.color.push([0.2, 0.8, 0.2, 1])
+        }
+        else if (keyword === 'f'){
+            model.triangles.push((words.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
+        }
+    }
+
+    return model
 }
