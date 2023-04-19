@@ -330,6 +330,8 @@ async function readOBJFile(objText){
         }
     const [maxPosValue, normal_enabled, texture_enabled, has_multiple_f] = initialScan(objText)
     const lines = objText.split('\n')
+    let vnArray = []
+    let vtArray = []
     for(let i=0; i<lines.length; i++){
         const line = lines[i]
         const words = line.split(/\s+/)
@@ -349,15 +351,81 @@ async function readOBJFile(objText){
             model.attributes.position.push(pos)
             model.attributes.color.push(color)
         }
+        else if(keyword === 'vn'){
+            vnArray.push((words.slice(1, 4)).map(parseFloat))
+        }
+        else if(keyword === 'vt'){
+            vtArray.push((words.slice(1, 4)).map(parseFloat))
+        }
         else if (keyword === 'f'){
-            model.triangles.push((words.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
-            if(has_multiple_f){
-                for(let i=0; i<words.length - 4; i++){
-                    tri = []
-                    tri.push(words[1])
-                    tri.push(words[i+3])
-                    tri.push(words[i+4])
-                    model.triangles.push(tri.map((str) => parseInt(str, 10) - 1))
+            if(normal_enabled && texture_enabled){
+                // both are enabled
+                // add index buffer
+                indices = ['f']
+                for(let i=0; i<words.length-1; i++){
+                    indices.push(words[i+1].split('/')[0])
+                }
+                console.log(indices)
+                model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
+                if(has_multiple_f){
+                    for(let i=0; i<indices.length - 4; i++){
+                        tri = []
+                        tri.push(indices[1])
+                        tri.push(indices[i+3])
+                        tri.push(indices[i+4])
+                        model.triangles.push(tri.map((str) => parseInt(str, 10) - 1))
+                    }
+                }
+            }
+            else if(normal_enabled){
+                // only normal is enabled
+                // add index buffer
+                indices = ['f']
+                for(let i=0; i<words.length-1; i++){
+                    indices.push(words[i+1].split('//')[0])
+                }
+                console.log(indices)
+                model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
+                if(has_multiple_f){
+                    for(let i=0; i<indices.length - 4; i++){
+                        tri = []
+                        tri.push(indices[1])
+                        tri.push(indices[i+3])
+                        tri.push(indices[i+4])
+                        model.triangles.push(tri.map((str) => parseInt(str, 10) - 1))
+                    }
+                }
+            }
+            else if(texture_enabled){
+                // only texture is enabled
+                // add index buffer
+                indices = ['f']
+                for(let i=0; i<words.length-1; i++){
+                    indices.push(words[i+1].split('/')[0])
+                }
+                console.log(indices)
+                model.triangles.push((indices.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
+                if(has_multiple_f){
+                    for(let i=0; i<indices.length - 4; i++){
+                        tri = []
+                        tri.push(indices[1])
+                        tri.push(indices[i+3])
+                        tri.push(indices[i+4])
+                        model.triangles.push(tri.map((str) => parseInt(str, 10) - 1))
+                    }
+                }
+            }
+            else{
+                // both are not enabled
+                model.triangles.push((words.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
+                if(has_multiple_f){
+                    for(let i=0; i<words.length - 4; i++){
+                        tri = []
+                        tri.push(words[1])
+                        tri.push(words[i+3])
+                        tri.push(words[i+4])
+                        model.triangles.push(tri.map((str) => parseInt(str, 10) - 1))
+                    }
                 }
             }
         }
