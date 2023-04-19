@@ -58,14 +58,14 @@ async function setup(event) {
             return null
         }
     })
-    window.modelOBJ = readOBJFile(objText)
-    if(modelOBJ !== null){
-        let vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
-        let fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
-        window.programOBJ = compileAndLinkGLSL(vs, fs)
-        addNormals(modelOBJ)
-        window.geomOBJ = setupGeomery(modelOBJ, programOBJ)
-    }
+    await readOBJFile(objText)
+    // if(modelOBJ !== null){
+    //     let vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+    //     let fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+    //     window.programOBJ = compileAndLinkGLSL(vs, fs)
+    //     addNormals(modelOBJ)
+    //     window.geomOBJ = setupGeomery(modelOBJ, programOBJ)
+    // }
 
     window.program = compileAndLinkGLSL(vs, fs)
     let terrain = makeGrid(100)

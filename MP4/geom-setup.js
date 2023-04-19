@@ -290,10 +290,11 @@ function loadTexture(){
     gl.generateMipmap(gl.TEXTURE_2D)
 }
 
-function readOBJFile(objText){
+async function readOBJFile(objText){
     if(objText == null){
         return
     }
+    let color_enabled = false
     var model =
         {"attributes":
             {"position":[]
@@ -307,15 +308,27 @@ function readOBJFile(objText){
         const words = line.split(/\s+/)
         const keyword = words[0]
         if(keyword === 'v'){
+            let color = null
+            if(words.length > 4){
+                color_enabled = true
+                color = (words.slice(4, 7)).map(parseFloat)
+            }
+            else{
+                color = [0.2, 0.8, 0.2, 1]
+            }
             let pos = (words.slice(1, 4)).map(parseFloat)
             pos[pos.length-1] += 0.2
             model.attributes.position.push(pos)
-            model.attributes.color.push([0.2, 0.8, 0.2, 1])
+            model.attributes.color.push(color)
         }
         else if (keyword === 'f'){
             model.triangles.push((words.slice(1, 4)).map((str) => parseInt(str, 10) - 1))
         }
     }
 
-    return model
+    let vs = await fetch('./shaders/vertexOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+    let fs = await fetch('./shaders/fragmentOBJ.glsl', {cache: "no-cache"}).then(res => res.text())
+    window.programOBJ = compileAndLinkGLSL(vs, fs)
+    addNormals(model)
+    window.geomOBJ = setupGeomery(model, programOBJ)
 }
