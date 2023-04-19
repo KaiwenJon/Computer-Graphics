@@ -289,7 +289,20 @@ function loadTexture(){
     );
     gl.generateMipmap(gl.TEXTURE_2D)
 }
-
+function getMaxRange(objText){
+    const lines = objText.split('\n')
+    let maxValue = 0
+    for(let i=0; i<lines.length; i++){
+        const line = lines[i]
+        const words = line.split(/\s+/)
+        const keyword = words[0]
+        if(keyword === 'v'){
+            let pos = (words.slice(1, 4)).map(parseFloat)
+            maxValue = Math.max(maxValue, Math.max(...pos))
+        }
+    }
+    return maxValue
+}
 async function readOBJFile(objText){
     if(objText == null){
         return
@@ -302,6 +315,7 @@ async function readOBJFile(objText){
             },
         "triangles":[]
         }
+    const maxPosValue = getMaxRange(objText)
     const lines = objText.split('\n')
     for(let i=0; i<lines.length; i++){
         const line = lines[i]
@@ -316,8 +330,10 @@ async function readOBJFile(objText){
             else{
                 color = [0.2, 0.8, 0.2, 1]
             }
-            let pos = (words.slice(1, 4)).map(parseFloat)
-            pos[pos.length-1] += 0.2
+            let pos = (words.slice(1, 4)).map(parseFloat).map((val) => val*(0.5/maxPosValue))
+            pos[0] += 0.5
+            pos[1] += 0.5
+            pos[2] += 0.5
             model.attributes.position.push(pos)
             model.attributes.color.push(color)
         }

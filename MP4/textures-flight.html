@@ -50,7 +50,11 @@ async function setup(event) {
     fillScreen()
     let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
     let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
-    let objText = await fetch('./example.obj', {cache: "no-cache"}).then(res => {
+    let objFile = window.location.hash.substr(1)
+    if(objFile === ""){
+        objFile = './example.obj'
+    }
+    let objText = await fetch(objFile, {cache: "no-cache"}).then(res => {
         if(res.ok){
             return res.text()
         }
