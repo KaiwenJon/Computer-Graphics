@@ -453,7 +453,7 @@ async function readOBJFile(objText){
         for(let i=0; i<vertexNum; i++){
             let [tex, norm] = vn_vt_lookup[(i+1).toString()]
             normals.push(vnArray[parseInt(norm)-1])
-            textures.push(vnArray[parseInt(tex)-1])
+            textures.push(vtArray[parseInt(tex)-1])
             model.attributes.normal = normals
             model.attributes.aTexCoord = textures
         }
@@ -476,7 +476,7 @@ async function readOBJFile(objText){
         textures = []
         for(let i=0; i<vertexNum; i++){
             let [tex, norm] = vn_vt_lookup[(i+1).toString()]
-            textures.push(vnArray[parseInt(tex)-1])
+            textures.push(vtArray[parseInt(tex)-1])
             model.attributes.aTexCoord = textures
         }
         vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())

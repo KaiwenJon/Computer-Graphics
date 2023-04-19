@@ -32,6 +32,12 @@ function drawTerrain(milliseconds) {
     if (keysBeingPressed['d']){
         window.v = m4mul(m4trans(-step, 0, 0), window.v)
     }
+    if (keysBeingPressed['e']){
+        window.v = m4mul(m4trans(0, -step, 0), window.v)
+    }
+    if (keysBeingPressed['q']){
+        window.v = m4mul(m4trans(0, step, 0), window.v)
+    }
     if (keysBeingPressed['ArrowUp']){
         window.v = m4mul(m4rotX(-step, 0, 0), window.v)
         // window.eye = m4mul(m4rotX(step, 0, 0), window.eye)
