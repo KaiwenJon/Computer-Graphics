@@ -1,1 +1,2 @@
 mpray_sphere.txt
+mpray_sun.txt

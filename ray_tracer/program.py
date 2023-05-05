@@ -8,7 +8,8 @@ from matplotlib.patches import Rectangle
 class Light():
     def __init__(self, color, direction):
         self.color = color
-        self.direction = direction
+        self.direction = direction / np.linalg.norm(direction)
+
 class Sphere():
     def __init__(self, x, y, z, r, color):
         self.center = np.array([x, y, z])
@@ -26,6 +27,8 @@ class Sphere():
         if(not isInside and tc < 0):
             return [float("inf"), None, None]
         d_2 = np.linalg.norm(ray_origin + tc * ray_direction - self.center) ** 2
+        if(not isInside and self.radius ** 2 < d_2):
+            return [float("inf"), None, None]
         t_offset = np.sqrt(self.radius ** 2 - d_2) / np.linalg.norm(ray_direction)
         if(isInside):
             t = tc + t_offset
@@ -43,7 +46,7 @@ class PNG:
         self.h = 0
         self.outputFile = ""
         self.image = None
-        self.current_rgba = [1, 1, 1, 1]
+        self.current_rgba = np.array([1, 1, 1, 1])
         self.renderObjects = []
         self.lights = []
         self.enableSRGB = True
@@ -62,17 +65,19 @@ class PNG:
             print(object)
         for xs in range(self.w):
             for ys in range(self.h):
-                origin = np.array([0, 0, 0])
+                ray_origin = np.array([0, 0, 0])
                 forward = np.array([0, 0, -1]) # z positive -> from screen to you
                 right = np.array([1, 0, 0])
                 up = np.array([0, 1, 0])
                 sx = (2 * xs - self.w) / max(self.w, self.h)
                 sy = (self.h - 2 * ys) / max(self.w, self.h)
-                direction = forward + sx * right + sy * up
-                direction /= np.linalg.norm(direction)
-                hit_object, t, intersection, normal = self.shoot_ray(origin, direction)
+                ray_direction = forward + sx * right + sy * up
+                ray_direction /= np.linalg.norm(ray_direction)
+                hit_object, t, intersection, normal = self.shoot_ray(ray_origin, ray_direction)
                 if(hit_object is not None):
-                    fragColor= np.array([0, 0, 0, 1])
+                    fragColor= np.array([0.0, 0.0, 0.0, 1.0])
+                    if(np.dot(ray_direction, normal) > 0):
+                        normal = -normal
                     for light in self.lights:
                         fragColor[:3] += hit_object.color[:3] * light.color * np.dot(normal, light.direction)
                     self.fillPixels(xs, ys, *fragColor, self.enableSRGB)
@@ -148,7 +153,13 @@ class PNG:
             #     r = self.gammaCorrect(r, type="storageToDisplay")
             #     g = self.gammaCorrect(g, type="storageToDisplay")
             #     b = self.gammaCorrect(b, type="storageToDisplay")
-            self.current_rgba = [r, g, b, a]
+            self.current_rgba = np.array([r, g, b, a])
+        elif(keyword == "sun"):
+            x = float(info[1])
+            y = float(info[2])
+            z = float(info[3])
+            light = Light(color=self.current_rgba[:3], direction=np.array([x, y, z]))
+            self.lights.append(light)
         
         
             
