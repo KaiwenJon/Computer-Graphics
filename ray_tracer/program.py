@@ -5,10 +5,20 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-class Light():
+class Sun():
     def __init__(self, color, direction):
         self.color = color
         self.direction = direction / np.linalg.norm(direction)
+    def getDirection(self, origin):
+        return self.direction
+class Bulb():
+    def __init__(self, color, location):
+        self.color = color
+        self.location = location
+    def getDirection(self, origin):
+        d = self.location - origin
+        d = d / np.linalg.norm(d)
+        return d
 
 class Sphere():
     def __init__(self, x, y, z, r, color):
@@ -73,21 +83,26 @@ class PNG:
                 sy = (self.h - 2 * ys) / max(self.w, self.h)
                 ray_direction = forward + sx * right + sy * up
                 ray_direction /= np.linalg.norm(ray_direction)
-                hit_object, t, intersection, normal = self.shoot_ray(ray_origin, ray_direction)
+                hit_object, t, intersection, normal = self.shoot_ray(ray_origin, ray_direction, None)
                 if(hit_object is not None):
                     fragColor= np.array([0.0, 0.0, 0.0, 1.0])
                     if(np.dot(ray_direction, normal) > 0):
                         normal = -normal
                     for light in self.lights:
-                        fragColor[:3] += hit_object.color[:3] * light.color * np.dot(normal, light.direction)
+                        # shoot a secondary ray along light direction, to see if there's object in the middle
+                        hit_object_2, _, _, _ = self.shoot_ray(intersection, light.getDirection(intersection), hit_object)
+                        if(hit_object_2 is None):
+                            fragColor[:3] += hit_object.color[:3] * light.color * np.dot(normal, light.getDirection(intersection))
                     self.fillPixels(xs, ys, *fragColor, self.enableSRGB)
 
-    def shoot_ray(self, origin, direction):
+    def shoot_ray(self, origin, direction, emittingObject):
         min_t = float("inf")
         min_t_object = None
         min_t_intersection = None
         min_t_normal = None
         for object in self.renderObjects:
+            if(object == emittingObject):
+                continue
             t, intersection, normal = object.getIntersection(ray=[origin, direction])
             if(t < min_t):
                 min_t = t
@@ -158,7 +173,7 @@ class PNG:
             x = float(info[1])
             y = float(info[2])
             z = float(info[3])
-            light = Light(color=self.current_rgba[:3], direction=np.array([x, y, z]))
+            light = Sun(color=self.current_rgba[:3], direction=np.array([x, y, z]))
             self.lights.append(light)
         
         

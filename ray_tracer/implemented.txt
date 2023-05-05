@@ -1,2 +1,7 @@
 mpray_sphere.txt
 mpray_sun.txt
+mpray_overlap.txt
+mpray_behind.txt
+mpray_suns.txt
+mpray_shadow-basic.txt
+mpray_shadow-suns.txt
