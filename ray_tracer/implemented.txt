@@ -5,3 +5,5 @@ mpray_behind.txt
 mpray_suns.txt
 mpray_shadow-basic.txt
 mpray_shadow-suns.txt
+mpray_bulb.txt
+mpray_shadow-bulb.txt

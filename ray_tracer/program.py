@@ -11,14 +11,32 @@ class Sun():
         self.direction = direction / np.linalg.norm(direction)
     def getDirection(self, origin):
         return self.direction
+    def getLightContribution(self, hitObjectColor, normal, hitObjectLocation):
+        contribution = hitObjectColor * self.color * np.dot(normal, self.direction)
+        contribution[contribution < 0.0] = 0.0
+        return contribution
+    def getDistanceToLight(self, orign):
+        return float("inf")
+    def __str__(self):
+        return f"Sun: color:{self.color}, direction: {self.direction}"
 class Bulb():
     def __init__(self, color, location):
         self.color = color
         self.location = location
     def getDirection(self, origin):
-        d = self.location - origin
-        d = d / np.linalg.norm(d)
-        return d
+        direction = self.location - origin
+        direction = direction / np.linalg.norm(direction)
+        return direction
+    def __str__(self):
+        return f"Bulb: color:{self.color}, location: {self.location}"
+    
+    def getLightContribution(self, hitObjectColor, normal, hitObjectLocation):
+        distance_square = np.sum((self.location - hitObjectLocation) ** 2)
+        contribution = 1/(distance_square) * hitObjectColor * self.color * np.dot(normal, self.getDirection(hitObjectLocation))
+        contribution[contribution < 0.0] = 0.0
+        return contribution
+    def getDistanceToLight(self, origin):
+        return np.linalg.norm(self.location - origin)
 
 class Sphere():
     def __init__(self, x, y, z, r, color):
@@ -73,6 +91,9 @@ class PNG:
         print("Objects to be rendered:")
         for object in self.renderObjects:
             print(object)
+        print("Light Sources: ")
+        for light in self.lights:
+            print(light)
         for xs in range(self.w):
             for ys in range(self.h):
                 ray_origin = np.array([0, 0, 0])
@@ -90,15 +111,16 @@ class PNG:
                         normal = -normal
                     for light in self.lights:
                         # shoot a secondary ray along light direction, to see if there's object in the middle
-                        hit_object_2, _, _, _ = self.shoot_ray(intersection, light.getDirection(intersection), hit_object)
-                        if(hit_object_2 is None):
-                            fragColor[:3] += hit_object.color[:3] * light.color * np.dot(normal, light.getDirection(intersection))
+                        hit_object_2, t_2, intersection_2, _ = self.shoot_ray(intersection, light.getDirection(intersection), hit_object)
+                        distanceToHitObject = np.linalg.norm(intersection_2 - intersection)
+                        if(distanceToHitObject >= light.getDistanceToLight(intersection)):
+                            fragColor[:3] += light.getLightContribution(hit_object.color[:3], normal, intersection)
                     self.fillPixels(xs, ys, *fragColor, self.enableSRGB)
 
     def shoot_ray(self, origin, direction, emittingObject):
         min_t = float("inf")
         min_t_object = None
-        min_t_intersection = None
+        min_t_intersection = np.array([float("inf"), float("inf"), float("inf")])
         min_t_normal = None
         for object in self.renderObjects:
             if(object == emittingObject):
@@ -174,6 +196,13 @@ class PNG:
             y = float(info[2])
             z = float(info[3])
             light = Sun(color=self.current_rgba[:3], direction=np.array([x, y, z]))
+            self.lights.append(light)
+
+        elif(keyword == "bulb"):
+            x = float(info[1])
+            y = float(info[2])
+            z = float(info[3])
+            light = Bulb(color=self.current_rgba[:3], location=np.array([x, y, z]))
             self.lights.append(light)
         
         
