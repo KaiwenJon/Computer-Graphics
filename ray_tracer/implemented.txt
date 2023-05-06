@@ -10,3 +10,5 @@ mpray_shadow-bulb.txt
 mpray_eye.txt
 mpray_forward.txt
 mpray_up.txt
+mpray_fisheye.txt
+mpray_neglight.txt

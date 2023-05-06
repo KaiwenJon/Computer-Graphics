@@ -12,8 +12,10 @@ class Sun():
     def getDirection(self, origin):
         return self.direction
     def getLightContribution(self, hitObjectColor, normal, hitObjectLocation):
+        if(np.dot(normal, self.direction) < 0):
+            return np.array([0.0, 0.0, 0.0])
         contribution = hitObjectColor * self.color * np.dot(normal, self.direction)
-        contribution[contribution < 0.0] = 0.0
+        # contribution[contribution < 0.0] = 0.0
         return contribution
     def getDistanceToLight(self, orign):
         return float("inf")
@@ -31,9 +33,11 @@ class Bulb():
         return f"Bulb: color:{self.color}, location: {self.location}"
     
     def getLightContribution(self, hitObjectColor, normal, hitObjectLocation):
+        if(np.dot(normal, self.getDirection(hitObjectLocation)) < 0):
+            return np.array([0.0, 0.0, 0.0])
         distance_square = np.sum((self.location - hitObjectLocation) ** 2)
         contribution = 1/(distance_square) * hitObjectColor * self.color * np.dot(normal, self.getDirection(hitObjectLocation))
-        contribution[contribution < 0.0] = 0.0
+        # contribution[contribution < 0.0] = 0.0
         return contribution
     def getDistanceToLight(self, origin):
         return np.linalg.norm(self.location - origin)
