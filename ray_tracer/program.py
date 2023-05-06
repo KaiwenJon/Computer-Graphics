@@ -63,7 +63,7 @@ class Sphere():
         else:
             t = tc - t_offset
         intersection = t * ray_direction + ray_origin
-        normal = (self.center - intersection) / self.radius
+        normal = (intersection - self.center) / self.radius
         return [t, intersection, normal]
             
 
@@ -78,6 +78,7 @@ class PNG:
         self.renderObjects = []
         self.lights = []
         self.enableSRGB = True
+        self.enableFishEye = False
         self.eye = np.array([0, 0, 0])
         self.forward = np.array([0, 0, -1])
         self.up = np.array([0, 1, 0])
@@ -99,22 +100,35 @@ class PNG:
         for light in self.lights:
             print(light)
         ray_origin = self.eye
-        forward = self.forward # z positive -> from screen to you
+        forward = self.forward.astype(np.float64) # z positive -> from screen to you
         right = np.cross(self.forward, self.up).astype(np.float64)
         right /= np.linalg.norm(right)
         up = np.cross(right, forward).astype(np.float64)
         up /= np.linalg.norm(up)
+        if(self.enableFishEye):
+            forward_length = np.linalg.norm(forward)
+            forward /= forward_length
         for xs in range(self.w):
             for ys in range(self.h):
                 sx = (2 * xs - self.w) / max(self.w, self.h)
                 sy = (self.h - 2 * ys) / max(self.w, self.h)
-                ray_direction = forward + sx * right + sy * up
-                ray_direction /= np.linalg.norm(ray_direction)
+                if(not self.enableFishEye):
+                    ray_direction = forward + sx * right + sy * up
+                    ray_direction /= np.linalg.norm(ray_direction)
+                else:
+                    sx /= forward_length
+                    sy /= forward_length
+                    r_2 = np.linalg.norm(sx) ** 2 + np.linalg.norm(sy) ** 2
+                    if(r_2 > 1):
+                        continue
+                    ray_direction = np.sqrt(1-r_2) * forward + sx * right + sy * up
+                    ray_direction /= np.linalg.norm(ray_direction)
                 hit_object, t, intersection, normal = self.shoot_ray(ray_origin, ray_direction, None)
                 if(hit_object is not None):
                     fragColor= np.array([0.0, 0.0, 0.0, 1.0])
                     if(np.dot(ray_direction, normal) > 0):
                         normal = -normal
+                        print("Back!!!!!", xs, ys)
                     for light in self.lights:
                         # shoot a secondary ray along light direction, to see if there's object in the middle
                         hit_object_2, t_2, intersection_2, _ = self.shoot_ray(intersection, light.getDirection(intersection), hit_object)
@@ -228,6 +242,9 @@ class PNG:
             uy = float(info[2])
             uz = float(info[3])
             self.up = np.array([ux, uy, uz])
+        
+        elif(keyword == "fisheye"):
+            self.enableFishEye = True
             
 
         
