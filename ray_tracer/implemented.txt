@@ -12,3 +12,9 @@ mpray_forward.txt
 mpray_up.txt
 mpray_fisheye.txt
 mpray_neglight.txt
+mpray_expose1.txt
+mpray_expose2.txt
+mpray_inside.txt
+mpray_shine1.txt
+mpray_shine3.txt
+mpray_plane.txt

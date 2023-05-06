@@ -69,7 +69,33 @@ class Sphere():
         intersection = t * ray_direction + ray_origin
         normal = (intersection - self.center) / self.radius
         return [t, intersection, normal]
-            
+
+class Plane():
+    def __init__(self, color, params):
+        self.color = color
+        self.params = params
+        self.normal = params[:3]
+        self.normal /= np.linalg.norm(self.normal)
+        if(params[0] != 0):
+            self.point = np.array([-params[3]/params[0], 0, 0])
+        elif(params[1] != 0):
+            self.point = np.array([0, -params[3]/params[1], 0])
+        elif(params[2] != 0):
+            self.point = np.array([0, 0, -params[3]/params[2]])
+
+    def __str__(self):
+        return f"Plane. params: {self.params}, color: {self.color}"
+    def getIntersection(self, ray):
+        # return t, intersection and normal
+        ray_origin, ray_direction = ray
+        if(np.dot(ray_direction, self.normal) == 0):
+            return [float("inf"), None, None]
+        t = np.dot(self.point - ray_origin, self.normal) / np.dot(ray_direction, self.normal)
+        if(t > 0):
+            intersection = t * ray_direction + ray_origin
+            return [t, intersection, self.normal]
+        else:
+            return [float("inf"), None, None]
 
 class PNG:
     def __init__(self, inputFile):
@@ -86,8 +112,8 @@ class PNG:
         self.eye = np.array([0, 0, 0])
         self.forward = np.array([0, 0, -1])
         self.up = np.array([0, 1, 0])
-
-
+        self.exposureV = None
+        self.currentShininess = None
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -132,7 +158,6 @@ class PNG:
                     fragColor= np.array([0.0, 0.0, 0.0, 1.0])
                     if(np.dot(ray_direction, normal) > 0):
                         normal = -normal
-                        print("Back!!!!!", xs, ys)
                     for light in self.lights:
                         # shoot a secondary ray along light direction, to see if there's object in the middle
                         hit_object_2, t_2, intersection_2, _ = self.shoot_ray(intersection, light.getDirection(intersection), hit_object)
@@ -177,6 +202,8 @@ class PNG:
                 Ldisplay = ((Lstorage+0.055)/1.055)**2.4
             return Ldisplay
         elif(type == "displayToStorage"):
+            if(self.exposureV is not None):
+                color = 1 - np.exp(-color * self.exposureV)
             Ldisplay = color
             if(Ldisplay <= 0.0031308):
                 Lstorage = 12.92 * Ldisplay
@@ -205,6 +232,13 @@ class PNG:
             r = float(info[4])
             sphere = Sphere(x=x, y=y, z=z, r=r, color=self.current_rgba)
             self.renderObjects.append(sphere)
+        elif(keyword == "plane"):
+            a = float(info[1])
+            b = float(info[2])
+            c = float(info[3])
+            d = float(info[4])
+            plane = Plane(color=self.current_rgba, params=np.array([a, b, c, d]))
+            self.renderObjects.append(plane)
         elif(keyword == "color"):
             r = float(info[1])
             g = float(info[2])
@@ -250,7 +284,8 @@ class PNG:
         elif(keyword == "fisheye"):
             self.enableFishEye = True
             
-
+        elif(keyword == "expose"):
+            self.exposureV = float(info[1])
         
 if __name__ == '__main__':
     # print(sys.argv)
