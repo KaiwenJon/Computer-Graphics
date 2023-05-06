@@ -78,6 +78,10 @@ class PNG:
         self.renderObjects = []
         self.lights = []
         self.enableSRGB = True
+        self.eye = np.array([0, 0, 0])
+        self.forward = np.array([0, 0, -1])
+        self.up = np.array([0, 1, 0])
+
 
         with open(inputFile) as f:
             lines = f.readlines()
@@ -94,12 +98,14 @@ class PNG:
         print("Light Sources: ")
         for light in self.lights:
             print(light)
+        ray_origin = self.eye
+        forward = self.forward # z positive -> from screen to you
+        right = np.cross(self.forward, self.up).astype(np.float64)
+        right /= np.linalg.norm(right)
+        up = np.cross(right, forward).astype(np.float64)
+        up /= np.linalg.norm(up)
         for xs in range(self.w):
             for ys in range(self.h):
-                ray_origin = np.array([0, 0, 0])
-                forward = np.array([0, 0, -1]) # z positive -> from screen to you
-                right = np.array([1, 0, 0])
-                up = np.array([0, 1, 0])
                 sx = (2 * xs - self.w) / max(self.w, self.h)
                 sy = (self.h - 2 * ys) / max(self.w, self.h)
                 ray_direction = forward + sx * right + sy * up
@@ -205,7 +211,23 @@ class PNG:
             light = Bulb(color=self.current_rgba[:3], location=np.array([x, y, z]))
             self.lights.append(light)
         
+        elif(keyword == "eye"):
+            ex = float(info[1])
+            ey = float(info[2])
+            ez = float(info[3])
+            self.eye = np.array([ex, ey, ez])
         
+        elif(keyword == "forward"):
+            fx = float(info[1])
+            fy = float(info[2])
+            fz = float(info[3])
+            self.forward = np.array([fx, fy, fz])
+
+        elif(keyword == "up"):
+            ux = float(info[1])
+            uy = float(info[2])
+            uz = float(info[3])
+            self.up = np.array([ux, uy, uz])
             
 
         

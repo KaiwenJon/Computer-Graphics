@@ -7,3 +7,6 @@ mpray_shadow-basic.txt
 mpray_shadow-suns.txt
 mpray_bulb.txt
 mpray_shadow-bulb.txt
+mpray_eye.txt
+mpray_forward.txt
+mpray_up.txt
