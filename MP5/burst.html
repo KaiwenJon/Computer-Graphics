@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Particle Systems</title>
+<script src="math.js"></script>
+<script src="draw-call.js?2"></script>
+<script src="geom-setup.js?2"></script>
+
+<script>// Placeholder script; edit or move to separate file
+const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
+const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
+// img.addEventListener('load', (event) => {
+//   console.log(img.width, img.height)
+// })
+/**
+ * Resizes the canvas to completely fill the screen
+ */
+function fillScreen() {
+    let canvas = document.querySelector('canvas')
+    document.body.style.margin = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.width = canvas.clientWidth
+    canvas.height = canvas.clientHeight
+    canvas.style.width = ''
+    canvas.style.height = ''
+    // to do: update aspect ratio of projection matrix here
+    if (window.gl) {
+        gl.viewport(0,0, canvas.width, canvas.height)
+        window.p = m4perspNegZ(0.1, 10, 0.5, canvas.width, canvas.height)
+        console.log(canvas.width, canvas.height)
+        gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    }
+}
+
+/**
+ * Compile, link, other option-independent setup
+ */
+async function setup(event) {
+    window.gl = document.querySelector('canvas').getContext('webgl2',
+        // optional configuration object: see https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+        {antialias: false, depth:true, preserveDrawingBuffer:true}
+    )
+    // to do: more setup here
+    fillScreen()
+    let vs = await fetch('./shaders/vertex.glsl', {cache: "no-cache"}).then(res => res.text())
+    let fs = await fetch('./shaders/fragment.glsl', {cache: "no-cache"}).then(res => res.text())
+    window.program = compileAndLinkGLSL(vs, fs)
+    let sphere = await fetch('./models/sphere80.json', {cache: "no-cache"}).then(res => res.json())
+    window.geom = setupGeomery(sphere, program)
+
+    let fs_cube = await fetch('./shaders/fragment-cube.glsl', {cache: "no-cache"}).then(res => res.text())
+    window.programCube = compileAndLinkGLSL(vs, fs_cube)
+
+    let cube = await fetch('./models/cube.json', {cache: "no-cache"}).then(res => res.json())
+    addNormals(cube)
+    window.geomCube = setupGeomery(cube, programCube)
+    gl.enable(gl.DEPTH_TEST)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    window.eye = [4, 5, 0.5, 1] // eye vector: changed only when camera rotates.
+    window.v = m4view([...eye], [0,0,0], [0,0,1])
+    window.pending = requestAnimationFrame(drawSphere)
+}
+
+window.addEventListener('load', setup)
+window.addEventListener('resize', fillScreen)
+
+window.keysBeingPressed = {}
+window.addEventListener('keydown', event => keysBeingPressed[event.key] = true)
+window.addEventListener('keyup', event => keysBeingPressed[event.key] = false)
+</script>
+
+</head>
+<body>
+    <div class="display"><canvas width="500" height="500"></canvas></div>
+</body>
+</html>

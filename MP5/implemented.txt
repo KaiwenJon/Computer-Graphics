@@ -1,0 +1,5 @@
+-Required
+
+-Optional
+--Rotating camera
+--OBJ loading (Basic + vertex colors + custom file+ more attributes)
