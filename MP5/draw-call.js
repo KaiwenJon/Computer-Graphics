@@ -53,7 +53,7 @@ function drawSphere(milliseconds) {
         window.v = m4mul(m4rotY(step/3, 0, 0), window.v)
         // window.eye = m4mul(m4rotY(-step, 0, 0), window.eye)
     }
-    const lightdir = normalize(new Float32Array([1, -1, 1]))//([0.8, -0.6, 0.0]) 
+    const lightdir = normalize(new Float32Array([5, 1, 2]))//([0.8, -0.6, 0.0]) 
     const lightcolor = new Float32Array([1, 1, 1])
     const halfway = normalize(add(lightdir, normalize(window.eye.slice(0, 3)))) // in theory we shouldn't make eye constant
     gl.clearColor(167/255, 240/255, 179/255, 1) // f(...[1,2,3]) means f(1,2,3)
@@ -64,20 +64,20 @@ function drawSphere(milliseconds) {
     gl.uniform3fv(gl.getUniformLocation(program, 'halfway'), halfway)
     gl.uniform3fv(gl.getUniformLocation(program, 'lightcolor'), lightcolor)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
-
-    for(let i=0; i<1; i++){
-        window.m = m4mul(m4trans(-0, -1, 0), m4scale(0.1, 0.1, 0.1)) // identity means assuming world origin is at model origin.
-        const particleColor = new Float32Array([0.5, 0.8, 0.2, 1])
+    
+    spheresList.forEach(([[x, y, z], [r, g, b]], index, array)=>{
+        window.m = m4mul(m4trans(x, y, z), m4scale(0.1, 0.1, 0.1)) // identity means assuming world origin is at model origin.
+        const particleColor = new Float32Array([r, g, b, 1])
         gl.uniform4fv(gl.getUniformLocation(program, 'particleColor'), particleColor)
         gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
         gl.uniformMatrix4fv(gl.getUniformLocation(program, 'm'), false, m)
         gl.drawElements(geom.mode, geom.count, geom.type, 0)
-    }
+    })
 
     // draw the invisible cube
     gl.useProgram(programCube)
     gl.bindVertexArray(geomCube.vao)
-    window.m = m4mul(m4trans(-0, -0, 0), m4scale(2, 2, 2))
+    window.m = m4mul(m4trans(-0, -0, 0), m4scale(2.5, 2.5, 2.5))
     const particleColor = new Float32Array([0.5, 0.8, 0.2, 1])
     gl.uniform4fv(gl.getUniformLocation(programCube, 'particleColor'), particleColor)
     gl.uniformMatrix4fv(gl.getUniformLocation(programCube, 'mv'), false, m4mul(v,m))

@@ -51,6 +51,12 @@ async function setup(event) {
     let sphere = await fetch('./models/sphere80.json', {cache: "no-cache"}).then(res => res.json())
     window.geom = setupGeomery(sphere, program)
 
+    window.spheresList = []
+    for(let i=0; i<50; i++){
+        spheresList.push([[Math.random()*2-1, Math.random()*2-1, Math.random()*2-1], [Math.random(), Math.random(), Math.random()]])
+    }
+
+
     let fs_cube = await fetch('./shaders/fragment-cube.glsl', {cache: "no-cache"}).then(res => res.text())
     window.programCube = compileAndLinkGLSL(vs, fs_cube)
 
