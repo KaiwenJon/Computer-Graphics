@@ -43,10 +43,12 @@ class Bulb():
         return np.linalg.norm(self.location - origin)
 
 class Sphere():
-    def __init__(self, x, y, z, r, color):
+    def __init__(self, x, y, z, r, color, shininess, roughness):
         self.center = np.array([x, y, z])
         self.radius = r
         self.color = color
+        self.shininess = shininess
+        self.roughness = roughness
     def __str__(self):
         return f"Sphere. center: {self.center}, radius: {self.radius}, color: {self.color}"
 
@@ -68,14 +70,19 @@ class Sphere():
             t = tc - t_offset
         intersection = t * ray_direction + ray_origin
         normal = (intersection - self.center) / self.radius
+        if(self.roughness > 0):
+            normal += np.array([np.random.normal(0, self.roughness), np.random.normal(0, self.roughness), np.random.normal(0, self.roughness)])
+        normal /= np.linalg.norm(normal)
         return [t, intersection, normal]
 
 class Plane():
-    def __init__(self, color, params):
+    def __init__(self, color, params, shininess, roughness):
         self.color = color
+        self.shininess = shininess
         self.params = params
         self.normal = params[:3]
         self.normal /= np.linalg.norm(self.normal)
+        self.roughness = roughness
         if(params[0] != 0):
             self.point = np.array([-params[3]/params[0], 0, 0])
         elif(params[1] != 0):
@@ -93,7 +100,12 @@ class Plane():
         t = np.dot(self.point - ray_origin, self.normal) / np.dot(ray_direction, self.normal)
         if(t > 0):
             intersection = t * ray_direction + ray_origin
-            return [t, intersection, self.normal]
+            if(self.roughness > 0):
+                normal = self.normal + np.array([np.random.normal(0, self.roughness), np.random.normal(0, self.roughness), np.random.normal(0, self.roughness)])
+                normal /= np.linalg.norm(normal)
+            else:
+                normal = self.normal
+            return [t, intersection, normal]
         else:
             return [float("inf"), None, None]
 
@@ -114,6 +126,8 @@ class PNG:
         self.up = np.array([0, 1, 0])
         self.exposureV = None
         self.currentShininess = None
+        self.currentRoughness = 0
+        self.bounces = 4
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -153,18 +167,36 @@ class PNG:
                         continue
                     ray_direction = np.sqrt(1-r_2) * forward + sx * right + sy * up
                     ray_direction /= np.linalg.norm(ray_direction)
-                hit_object, t, intersection, normal = self.shoot_ray(ray_origin, ray_direction, None)
-                if(hit_object is not None):
-                    fragColor= np.array([0.0, 0.0, 0.0, 1.0])
-                    if(np.dot(ray_direction, normal) > 0):
-                        normal = -normal
-                    for light in self.lights:
-                        # shoot a secondary ray along light direction, to see if there's object in the middle
-                        hit_object_2, t_2, intersection_2, _ = self.shoot_ray(intersection, light.getDirection(intersection), hit_object)
-                        distanceToHitObject = np.linalg.norm(intersection_2 - intersection)
-                        if(distanceToHitObject >= light.getDistanceToLight(intersection)):
-                            fragColor[:3] += light.getLightContribution(hit_object.color[:3], normal, intersection)
-                    self.fillPixels(xs, ys, *fragColor, self.enableSRGB)
+                fragColor, hasHitObject = self.ray_tracing([ray_origin, ray_direction], emittingObject=None, bounces=self.bounces)
+                if(hasHitObject):
+                    self.fillPixels(xs, ys, *fragColor, 1, self.enableSRGB)
+
+    def getDiffuseLightWithShadows(self, hitPoint, hitObject, normal):
+        diffuseColor = np.array([0.0, 0.0, 0.0])
+        for light in self.lights:
+            hit_object_2, t_2, intersection_2, _ = self.shoot_ray(hitPoint, light.getDirection(hitPoint), hitObject)
+            distanceToHitObject = np.linalg.norm(intersection_2 - hitPoint)
+            if(distanceToHitObject >= light.getDistanceToLight(hitPoint)):
+                diffuseColor += light.getLightContribution(hitObject.color[:3], normal, hitPoint)
+        return diffuseColor
+
+    def ray_tracing(self, ray, emittingObject, bounces):
+        # return color_at_hitPoint, hasHitObject
+        ray_origin, ray_direction = ray
+        hit_object, t, intersection, normal = self.shoot_ray(ray_origin, ray_direction, emittingObject)
+        if(hit_object == None):
+            return np.array([0.0, 0.0, 0.0]), False
+        if(np.dot(ray_direction, normal) > 0):
+            normal = -normal
+        diffuseColor = self.getDiffuseLightWithShadows(intersection, hit_object, normal)
+        if(bounces > 0 and hit_object.shininess is not None):
+            ray2_origin = intersection
+            ray_direction /= np.linalg.norm(ray_direction)
+            ray2_direction = 2 * np.dot(normal, -ray_direction) * normal + ray_direction
+            reflectedColor, _ = self.ray_tracing(ray=[ray2_origin, ray2_direction], emittingObject=hit_object, bounces=bounces-1)
+            return diffuseColor * (1-hit_object.shininess) + reflectedColor * hit_object.shininess, True
+        else:
+            return diffuseColor, True
 
     def shoot_ray(self, origin, direction, emittingObject):
         min_t = float("inf")
@@ -230,14 +262,14 @@ class PNG:
             y = float(info[2])
             z = float(info[3])
             r = float(info[4])
-            sphere = Sphere(x=x, y=y, z=z, r=r, color=self.current_rgba)
+            sphere = Sphere(x=x, y=y, z=z, r=r, color=self.current_rgba, shininess=self.currentShininess, roughness=self.currentRoughness)
             self.renderObjects.append(sphere)
         elif(keyword == "plane"):
             a = float(info[1])
             b = float(info[2])
             c = float(info[3])
             d = float(info[4])
-            plane = Plane(color=self.current_rgba, params=np.array([a, b, c, d]))
+            plane = Plane(color=self.current_rgba, params=np.array([a, b, c, d]), shininess=self.currentShininess, roughness=self.currentRoughness)
             self.renderObjects.append(plane)
         elif(keyword == "color"):
             r = float(info[1])
@@ -286,6 +318,23 @@ class PNG:
             
         elif(keyword == "expose"):
             self.exposureV = float(info[1])
+
+        elif(keyword == "shininess"):
+            if(len(info) == 2):
+                s = float(info[1])
+                self.currentShininess = np.array([s, s, s])
+            else:
+                sx = float(info[1])
+                sy = float(info[2])
+                sz = float(info[3])
+                self.currentShininess = np.array([sx, sy, sz])
+        elif(keyword == "bounces"):
+            d = int(info[1])
+            self.bounces = d
+
+        elif(keyword == "roughness"):
+            sigma = float(info[1])
+            self.currentRoughness = sigma
         
 if __name__ == '__main__':
     # print(sys.argv)

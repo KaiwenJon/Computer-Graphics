@@ -18,3 +18,5 @@ mpray_inside.txt
 mpray_shine1.txt
 mpray_shine3.txt
 mpray_plane.txt
+mpray_bounces.txt
+mpray_rough.txt
