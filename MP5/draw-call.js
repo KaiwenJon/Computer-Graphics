@@ -16,7 +16,7 @@ let lastTimestamp = 0
 let lastUpdateSphere = 0
 let cube_width = 2.5
 let sphere_radius = 0.1
-let gravity = [0, 0, -7]
+let gravity = [0, 0, -5]
 let sixPlanesEquation = [
     [0, 0, 1, cube_width/2],
     [0, 0, -1, cube_width/2],
@@ -25,16 +25,29 @@ let sixPlanesEquation = [
     [0, 1, 0, cube_width/2],
     [0, -1, 0, cube_width/2]
 ]
+function getAverage(buffer){
+    const sum = buffer.reduce((total, num) => total + num, 0);
+    const average = sum / buffer.length;
+    return average
+}
+fpsBuffer = []
 function drawSphere(milliseconds) {
     // let's use method1
     let seconds = milliseconds / 1000;
     const delta_seconds = seconds - lastTimestamp
+    fpsBuffer.push(delta_seconds)
+    if(fpsBuffer.length >= 20){
+        fpsBuffer.shift()
+    }
     lastTimestamp = seconds
-    
     const delta_seconds_updateSphere = seconds - lastUpdateSphere
     if(delta_seconds_updateSphere > 5){
         window.spheresList = initSphereList()
         lastUpdateSphere = seconds
+    }
+    else if(delta_seconds_updateSphere > 0.5){
+        let fps = 1 / getAverage(fpsBuffer)
+        document.querySelector('#fps').innerHTML = `FPS: ${fps.toFixed(2)}`
     }
     // let eye = [1.2*Math.cos(seconds/2),1.2*Math.sin(seconds/2), 0.7] // camera point, in world coordinate
     let step = 0.03
@@ -84,28 +97,50 @@ function drawSphere(milliseconds) {
     gl.uniform3fv(gl.getUniformLocation(program, 'lightcolor'), lightcolor)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
     
-    spheresList.forEach(([pos, vel, color], index, array)=>{
+
+    spheresList.forEach(([pos, vel, color, radius, mass], index, array)=>{
+        // check collision with all other guys
+        spheresList.forEach(([p, v, c, r, m], i, a)=>{
+            if(index == i){
+                return
+            }
+            let d = sub(p,  pos)
+            let distance = mag(d)
+            d = normalize(d)
+            if(distance < (radius + r) && dot(vel, d) > 0){
+                let wi = m / (mass + m)
+                let wj = mass / (mass + m)
+                let si = dot(vel, d)
+                let sj = dot(v, d)
+                let s = si - sj
+                let e = 0.8
+                vel = vel.map((v_, i_)=> v_ - wi * (1 + e) * s * d[i_]) 
+                v = v.map((v_, i_)=> v_ + wj * (1 + e) * s * d[i_]) 
+                a[i] = [p, v, c, r, m]
+            }
+        })
+
         sixPlanesEquation.forEach((equation)=>{
             let plane_normal = equation.slice(0, 3)
             plane_normal = plane_normal.map((n)=>-n)
             let signed_distance = dot([...pos, 1], equation) / mag(plane_normal)
-            if(Math.abs(signed_distance) <= sphere_radius && Math.sign(signed_distance) == Math.sign(dot(vel, plane_normal))){
+            if(Math.abs(signed_distance) <= radius && Math.sign(signed_distance) == Math.sign(dot(vel, plane_normal))){
                 // && Math.sign(signed_distance) == Math.sign(dot(vel, plane_normal))
                 let wi = 1
                 let si = dot(vel, plane_normal)
                 let sj = 0
                 let s = si - sj // update i using -, update j using +
-                let e = 0.7
+                let e = 0.8
                 vel = vel.map((v, i)=> v - wi * (1 + e) * s * plane_normal[i]) 
             }
         })
         //drag force
         c = 20
-        drag_a = vel.map((v, i) => -c *v * sphere_radius * sphere_radius)
+        drag_a = vel.map((v, i) => -c *v * radius * radius)
         pos = pos.map((p, i) => p + vel[i] * delta_seconds)
         vel = vel.map((v, i) => (v + (gravity[i] + drag_a[i]) * delta_seconds))
-        array[index] = [pos, vel, color]
-        window.m = m4mul(m4trans(...pos), m4scale(sphere_radius, sphere_radius, sphere_radius)) // identity means assuming world origin is at model origin.
+        array[index] = [pos, vel, color, radius, mass]
+        window.m = m4mul(m4trans(...pos), m4scale(radius, radius, radius)) // identity means assuming world origin is at model origin.
         const particleColor = new Float32Array([...color, 1])
         gl.uniform4fv(gl.getUniformLocation(program, 'particleColor'), particleColor)
         gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
@@ -121,7 +156,7 @@ function drawSphere(milliseconds) {
     gl.uniformMatrix4fv(gl.getUniformLocation(programCube, 'm'), false, m)
 
     gl.uniformMatrix4fv(gl.getUniformLocation(programCube, 'p'), false, p)
-    gl.drawElements(geomCube.mode, geomCube.count, geomCube.type, 0)
+    // gl.drawElements(geomCube.mode, geomCube.count, geomCube.type, 0)
 
     window.pending = requestAnimationFrame(drawSphere)
 }

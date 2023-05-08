@@ -1,5 +1,7 @@
 -Required
 
 -Optional
---Rotating camera
---OBJ loading (Basic + vertex colors + custom file+ more attributes)
+-- FPS
+-- Sphere sphere collisions
+-- Variable radii
+-- Variable mass

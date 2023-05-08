@@ -6,7 +6,7 @@
 <script src="math.js"></script>
 <script src="draw-call.js?2"></script>
 <script src="geom-setup.js?2"></script>
-
+<div id="fps" style="position:fixed; bottom:0; right:0; display:table; color:rgb(0, 0, 0)">ssss</div>
 <script>// Placeholder script; edit or move to separate file
 const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
 const IlliniOrange = new Float32Array([1, 0.373, 0.02, 1])
@@ -34,15 +34,21 @@ function fillScreen() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     }
 }
-
+const radiiList = [0.1, 0.13, 0.14, 0.15, 0.16, 0.17, 0.2, 0.24, 0.3]
 function initSphereList(){
     spheresList = []
     for(let i=0; i<50; i++){
+        let pos = [(Math.random()-1/2)*2, (Math.random()-1/2)*2, (Math.random()-1/2)*2]
+        let vel = [(Math.random()-1/2)*3, (Math.random()-1/2)*3, (Math.random()-1/2)*3]
+        let color = [Math.random(), Math.random(), Math.random()]
+        let radii = radiiList[Math.floor(Math.random() * radiiList.length)]
+        let mass = radii * radii * radii 
         spheresList.push([
-            [(Math.random()-1/2)*2, (Math.random()-1/2)*2, (Math.random()-1/2)*2], // x, y, z
-            [(Math.random()-1/2)*3, (Math.random()-1/2)*3, (Math.random()-1/2)*3], // vx, vy, vz
-            // [1, 0 , 0],
-            [Math.random(), Math.random(), Math.random()], // r, g, b
+            pos, // x, y, z
+            vel, // vx, vy, vz
+            color, // r, g, b
+            radii, // mass
+            mass
         ])
     }
     return spheresList
@@ -91,6 +97,6 @@ window.addEventListener('keyup', event => keysBeingPressed[event.key] = false)
 
 </head>
 <body>
-    <div class="display"><canvas width="500" height="500"></canvas></div>
+    <div class="display"><canvas width="500" height="600"></canvas></div>
 </body>
 </html>
