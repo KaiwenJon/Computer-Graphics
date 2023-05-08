@@ -12,11 +12,30 @@
 // => eyedir = [0, 0, 1]. remains the same.
 // => normal = mv * normal.
 const IdentityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])
+let lastTimestamp = 0
+let lastUpdateSphere = 0
+let cube_width = 2.5
+let sphere_radius = 0.1
+let gravity = [0, 0, -7]
+let sixPlanesEquation = [
+    [0, 0, 1, cube_width/2],
+    [0, 0, -1, cube_width/2],
+    [1, 0, 0, cube_width/2],
+    [-1 ,0, 0, cube_width/2],
+    [0, 1, 0, cube_width/2],
+    [0, -1, 0, cube_width/2]
+]
 function drawSphere(milliseconds) {
     // let's use method1
     let seconds = milliseconds / 1000;
-    let s2 = Math.cos(seconds/2)-1
+    const delta_seconds = seconds - lastTimestamp
+    lastTimestamp = seconds
     
+    const delta_seconds_updateSphere = seconds - lastUpdateSphere
+    if(delta_seconds_updateSphere > 5){
+        window.spheresList = initSphereList()
+        lastUpdateSphere = seconds
+    }
     // let eye = [1.2*Math.cos(seconds/2),1.2*Math.sin(seconds/2), 0.7] // camera point, in world coordinate
     let step = 0.03
     if (keysBeingPressed['w']){
@@ -53,10 +72,10 @@ function drawSphere(milliseconds) {
         window.v = m4mul(m4rotY(step/3, 0, 0), window.v)
         // window.eye = m4mul(m4rotY(-step, 0, 0), window.eye)
     }
-    const lightdir = normalize(new Float32Array([5, 1, 2]))//([0.8, -0.6, 0.0]) 
+    const lightdir = normalize(new Float32Array([5, 0, 2]))//([0.8, -0.6, 0.0]) 
     const lightcolor = new Float32Array([1, 1, 1])
     const halfway = normalize(add(lightdir, normalize(window.eye.slice(0, 3)))) // in theory we shouldn't make eye constant
-    gl.clearColor(167/255, 240/255, 179/255, 1) // f(...[1,2,3]) means f(1,2,3)
+    gl.clearColor(1, 0.373, 0.02, 0.5) // f(...[1,2,3]) means f(1,2,3)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
     gl.bindVertexArray(geom.vao)
@@ -65,9 +84,29 @@ function drawSphere(milliseconds) {
     gl.uniform3fv(gl.getUniformLocation(program, 'lightcolor'), lightcolor)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'p'), false, p)
     
-    spheresList.forEach(([[x, y, z], [r, g, b]], index, array)=>{
-        window.m = m4mul(m4trans(x, y, z), m4scale(0.1, 0.1, 0.1)) // identity means assuming world origin is at model origin.
-        const particleColor = new Float32Array([r, g, b, 1])
+    spheresList.forEach(([pos, vel, color], index, array)=>{
+        sixPlanesEquation.forEach((equation)=>{
+            let plane_normal = equation.slice(0, 3)
+            plane_normal = plane_normal.map((n)=>-n)
+            let signed_distance = dot([...pos, 1], equation) / mag(plane_normal)
+            if(Math.abs(signed_distance) <= sphere_radius && Math.sign(signed_distance) == Math.sign(dot(vel, plane_normal))){
+                // && Math.sign(signed_distance) == Math.sign(dot(vel, plane_normal))
+                let wi = 1
+                let si = dot(vel, plane_normal)
+                let sj = 0
+                let s = si - sj // update i using -, update j using +
+                let e = 0.7
+                vel = vel.map((v, i)=> v - wi * (1 + e) * s * plane_normal[i]) 
+            }
+        })
+        //drag force
+        c = 20
+        drag_a = vel.map((v, i) => -c *v * sphere_radius * sphere_radius)
+        pos = pos.map((p, i) => p + vel[i] * delta_seconds)
+        vel = vel.map((v, i) => (v + (gravity[i] + drag_a[i]) * delta_seconds))
+        array[index] = [pos, vel, color]
+        window.m = m4mul(m4trans(...pos), m4scale(sphere_radius, sphere_radius, sphere_radius)) // identity means assuming world origin is at model origin.
+        const particleColor = new Float32Array([...color, 1])
         gl.uniform4fv(gl.getUniformLocation(program, 'particleColor'), particleColor)
         gl.uniformMatrix4fv(gl.getUniformLocation(program, 'mv'), false, m4mul(v,m))
         gl.uniformMatrix4fv(gl.getUniformLocation(program, 'm'), false, m)
@@ -77,9 +116,7 @@ function drawSphere(milliseconds) {
     // draw the invisible cube
     gl.useProgram(programCube)
     gl.bindVertexArray(geomCube.vao)
-    window.m = m4mul(m4trans(-0, -0, 0), m4scale(2.5, 2.5, 2.5))
-    const particleColor = new Float32Array([0.5, 0.8, 0.2, 1])
-    gl.uniform4fv(gl.getUniformLocation(programCube, 'particleColor'), particleColor)
+    window.m = m4mul(m4trans(-0, -0, 0), m4scale(cube_width, cube_width, cube_width))
     gl.uniformMatrix4fv(gl.getUniformLocation(programCube, 'mv'), false, m4mul(v,m))
     gl.uniformMatrix4fv(gl.getUniformLocation(programCube, 'm'), false, m)
 

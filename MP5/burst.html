@@ -28,11 +28,24 @@ function fillScreen() {
     // to do: update aspect ratio of projection matrix here
     if (window.gl) {
         gl.viewport(0,0, canvas.width, canvas.height)
-        window.p = m4perspNegZ(0.1, 10, 0.5, canvas.width, canvas.height)
+        window.p = m4perspNegZ(0.1, 15, 0.5, canvas.width, canvas.height)
         console.log(canvas.width, canvas.height)
         gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     }
+}
+
+function initSphereList(){
+    spheresList = []
+    for(let i=0; i<50; i++){
+        spheresList.push([
+            [(Math.random()-1/2)*2, (Math.random()-1/2)*2, (Math.random()-1/2)*2], // x, y, z
+            [(Math.random()-1/2)*3, (Math.random()-1/2)*3, (Math.random()-1/2)*3], // vx, vy, vz
+            // [1, 0 , 0],
+            [Math.random(), Math.random(), Math.random()], // r, g, b
+        ])
+    }
+    return spheresList
 }
 
 /**
@@ -51,10 +64,7 @@ async function setup(event) {
     let sphere = await fetch('./models/sphere80.json', {cache: "no-cache"}).then(res => res.json())
     window.geom = setupGeomery(sphere, program)
 
-    window.spheresList = []
-    for(let i=0; i<50; i++){
-        spheresList.push([[Math.random()*2-1, Math.random()*2-1, Math.random()*2-1], [Math.random(), Math.random(), Math.random()]])
-    }
+    window.spheresList = initSphereList()
 
 
     let fs_cube = await fetch('./shaders/fragment-cube.glsl', {cache: "no-cache"}).then(res => res.text())
@@ -66,7 +76,7 @@ async function setup(event) {
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-    window.eye = [4, 5, 0.5, 1] // eye vector: changed only when camera rotates.
+    window.eye = [5, 6, 3, 1] // eye vector: changed only when camera rotates.
     window.v = m4view([...eye], [0,0,0], [0,0,1])
     window.pending = requestAnimationFrame(drawSphere)
 }
