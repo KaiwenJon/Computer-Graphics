@@ -30,6 +30,6 @@ files=( mpray_sphere
 for file in ${files[@]}
 do
     echo ${file}
-    magick compare -fuzz 1% './'${file}'.png' './mprayfiles/'${file}'.png' './difference/'${file}.png
+    magick compare -fuzz 1% './'${file}'.png' '../mprayfiles/'${file}'.png' './difference/'${file}.png
     # magick './output/'${file}'.png' './ans/'${file}'.png' -compare './difference/'${file}.png
 done

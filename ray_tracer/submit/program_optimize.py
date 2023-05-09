@@ -165,7 +165,7 @@ class PNG:
             forward /= forward_length
         for xs in range(self.w):
             for ys in range(self.h):
-                print("Rendering pixels: ", xs, ys)
+                # print("Rendering pixels: ", xs, ys)
                 # shoot aaNum rays on this pixel, and average the color
                 allRaysMissed = True
                 accumulatedFragColor = np.array([0.0, 0.0, 0.0])

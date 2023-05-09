@@ -2,8 +2,7 @@ import sys
 from PIL import Image, ImageColor
 import numpy as np
 import math
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+import time
 
 class Sun():
     def __init__(self, color, direction):
@@ -378,9 +377,12 @@ if __name__ == '__main__':
         with open(inputFile) as f:
             files = f.readlines()
             for file in files:
+                start = time.time()
                 if(file[-1:] == "\n"):
                     file = file[:-1]
                 png = PNG(inputFile=file)
+                end = time.time()
+                print("Elapsed time: ", end-start)
     elif(inputFile == 'implemented_test.txt'):
         print("Testing...Multiple files detected.")
         with open(inputFile) as f:
@@ -390,7 +392,10 @@ if __name__ == '__main__':
                     file = file[:-1]
                 png = PNG(inputFile=file)
     else:
+        start = time.time()
         png = PNG(inputFile=inputFile)
+        end = time.time()
+        print("Elapsed time: ", end-start)
 
 
 
