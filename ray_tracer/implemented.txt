@@ -20,3 +20,4 @@ mpray_shine3.txt
 mpray_plane.txt
 mpray_bounces.txt
 mpray_rough.txt
+mpray_aa.txt

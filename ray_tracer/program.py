@@ -80,8 +80,7 @@ class Plane():
         self.color = color
         self.shininess = shininess
         self.params = params
-        self.normal = params[:3]
-        self.normal /= np.linalg.norm(self.normal)
+        self.normal = params[:3] / np.linalg.norm(params[:3])
         self.roughness = roughness
         if(params[0] != 0):
             self.point = np.array([-params[3]/params[0], 0, 0])
@@ -89,7 +88,6 @@ class Plane():
             self.point = np.array([0, -params[3]/params[1], 0])
         elif(params[2] != 0):
             self.point = np.array([0, 0, -params[3]/params[2]])
-
     def __str__(self):
         return f"Plane. params: {self.params}, color: {self.color}"
     def getIntersection(self, ray):
@@ -128,6 +126,7 @@ class PNG:
         self.currentShininess = None
         self.currentRoughness = 0
         self.bounces = 4
+        self.aaNum = 1
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -154,22 +153,37 @@ class PNG:
             forward /= forward_length
         for xs in range(self.w):
             for ys in range(self.h):
-                sx = (2 * xs - self.w) / max(self.w, self.h)
-                sy = (self.h - 2 * ys) / max(self.w, self.h)
-                if(not self.enableFishEye):
-                    ray_direction = forward + sx * right + sy * up
-                    ray_direction /= np.linalg.norm(ray_direction)
-                else:
-                    sx /= forward_length
-                    sy /= forward_length
-                    r_2 = np.linalg.norm(sx) ** 2 + np.linalg.norm(sy) ** 2
-                    if(r_2 > 1):
-                        continue
-                    ray_direction = np.sqrt(1-r_2) * forward + sx * right + sy * up
-                    ray_direction /= np.linalg.norm(ray_direction)
-                fragColor, hasHitObject = self.ray_tracing([ray_origin, ray_direction], emittingObject=None, bounces=self.bounces)
-                if(hasHitObject):
-                    self.fillPixels(xs, ys, *fragColor, 1, self.enableSRGB)
+                # shoot aaNum rays on this pixel, and average the color
+                allRaysMissed = True
+                accumulatedFragColor = np.array([0.0, 0.0, 0.0])
+                for _ in range(self.aaNum):
+                    if(self.aaNum == 1):
+                        # shoot the midpoint of pixel
+                        aa_xs = xs
+                        aa_ys = ys
+                    else:
+                        aa_xs = xs + np.random.uniform()-0.5
+                        aa_ys = ys + np.random.uniform()-0.5
+                    sx = (2 * aa_xs - self.w) / max(self.w, self.h)
+                    sy = (self.h - 2 * aa_ys) / max(self.w, self.h)
+                    if(not self.enableFishEye):
+                        ray_direction = forward + sx * right + sy * up
+                        ray_direction /= np.linalg.norm(ray_direction)
+                    else:
+                        sx /= forward_length
+                        sy /= forward_length
+                        r_2 = np.linalg.norm(sx) ** 2 + np.linalg.norm(sy) ** 2
+                        if(r_2 > 1):
+                            continue
+                        ray_direction = np.sqrt(1-r_2) * forward + sx * right + sy * up
+                        ray_direction /= np.linalg.norm(ray_direction)
+                    fragColor, hasHitObject = self.ray_tracing([ray_origin, ray_direction], emittingObject=None, bounces=self.bounces)
+                    if(hasHitObject):
+                        allRaysMissed = False
+                        accumulatedFragColor += fragColor
+                if(not allRaysMissed):
+                    avgFragColor = accumulatedFragColor / self.aaNum
+                    self.fillPixels(xs, ys, *avgFragColor, 1, self.enableSRGB)
 
     def getDiffuseLightWithShadows(self, hitPoint, hitObject, normal):
         diffuseColor = np.array([0.0, 0.0, 0.0])
@@ -335,6 +349,10 @@ class PNG:
         elif(keyword == "roughness"):
             sigma = float(info[1])
             self.currentRoughness = sigma
+
+        elif(keyword == "aa"):
+            aaNum = int(info[1])
+            self.aaNum = aaNum
         
 if __name__ == '__main__':
     # print(sys.argv)
