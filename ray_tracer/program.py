@@ -127,6 +127,7 @@ class PNG:
         self.currentRoughness = 0
         self.bounces = 4
         self.aaNum = 1
+        self.enableDOF = False
         with open(inputFile) as f:
             lines = f.readlines()
             for line in lines:
@@ -142,7 +143,6 @@ class PNG:
         print("Light Sources: ")
         for light in self.lights:
             print(light)
-        ray_origin = self.eye
         forward = self.forward.astype(np.float64) # z positive -> from screen to you
         right = np.cross(self.forward, self.up).astype(np.float64)
         right /= np.linalg.norm(right)
@@ -157,6 +157,7 @@ class PNG:
                 allRaysMissed = True
                 accumulatedFragColor = np.array([0.0, 0.0, 0.0])
                 for _ in range(self.aaNum):
+                    ray_origin = self.eye
                     if(self.aaNum == 1):
                         # shoot the midpoint of pixel
                         aa_xs = xs
@@ -166,16 +167,23 @@ class PNG:
                         aa_ys = ys + np.random.uniform()-0.5
                     sx = (2 * aa_xs - self.w) / max(self.w, self.h)
                     sy = (self.h - 2 * aa_ys) / max(self.w, self.h)
-                    if(not self.enableFishEye):
+                    if(self.enableDOF):
                         ray_direction = forward + sx * right + sy * up
                         ray_direction /= np.linalg.norm(ray_direction)
-                    else:
+                        convergence = ray_origin + self.focus * ray_direction
+                        ray_origin = ray_origin + right * (np.random.rand()-1/2)*self.lens*2 + up * (np.random.rand()-1/2)*self.lens*2
+                        ray_direction = convergence - ray_origin
+                        ray_direction /= np.linalg.norm(ray_direction)
+                    elif(self.enableFishEye):
                         sx /= forward_length
                         sy /= forward_length
                         r_2 = np.linalg.norm(sx) ** 2 + np.linalg.norm(sy) ** 2
                         if(r_2 > 1):
                             continue
                         ray_direction = np.sqrt(1-r_2) * forward + sx * right + sy * up
+                        ray_direction /= np.linalg.norm(ray_direction)
+                    else:
+                        ray_direction = forward + sx * right + sy * up
                         ray_direction /= np.linalg.norm(ray_direction)
                     fragColor, hasHitObject = self.ray_tracing([ray_origin, ray_direction], emittingObject=None, bounces=self.bounces)
                     if(hasHitObject):
@@ -353,6 +361,13 @@ class PNG:
         elif(keyword == "aa"):
             aaNum = int(info[1])
             self.aaNum = aaNum
+
+        elif(keyword == "dof"):
+            focus = float(info[1])
+            lens = float(info[2])
+            self.enableDOF = True
+            self.focus = focus
+            self.lens = lens
         
 if __name__ == '__main__':
     # print(sys.argv)
