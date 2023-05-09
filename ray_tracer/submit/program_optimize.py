@@ -168,7 +168,7 @@ class PNG:
                 # print("Rendering pixels: ", xs, ys)
                 # shoot aaNum rays on this pixel, and average the color
                 allRaysMissed = True
-                accumulatedFragColor = np.array([0.0, 0.0, 0.0])
+                accumulatedFragColor = np.array([0.0, 0.0, 0.0, 1.0])
                 for _ in range(self.aaNum):
                     ray_origin = self.eye
                     if(self.aaNum == 1):
@@ -201,10 +201,12 @@ class PNG:
                     fragColor, hasHitObject = self.ray_tracing([ray_origin, ray_direction], emittingObject=None, bounces=self.bounces)
                     if(hasHitObject):
                         allRaysMissed = False
-                        accumulatedFragColor += fragColor
+                        accumulatedFragColor += np.array([*fragColor, 1])
+                    else:
+                        accumulatedFragColor += np.array([0.0, 0.0, 0.0, 0.0])
                 if(not allRaysMissed):
                     avgFragColor = accumulatedFragColor / self.aaNum
-                    self.fillPixels(xs, ys, *avgFragColor, 1, self.enableSRGB)
+                    self.fillPixels(xs, ys, *avgFragColor, self.enableSRGB)
 
     def getDiffuseLightWithShadows(self, hitPoint, hitObject, normal):
         diffuseColor = np.array([0.0, 0.0, 0.0])
