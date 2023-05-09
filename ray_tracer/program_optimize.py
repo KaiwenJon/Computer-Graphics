@@ -42,6 +42,14 @@ class Bulb():
     def getDistanceToLight(self, origin):
         return np.linalg.norm(self.location - origin)
 
+class BVHNode():
+    def __init__(self, left_child=None, right_child=None, bbox=None, sphere=None):
+        self.left_child = left_child
+        self.right_child = right_child
+        self.bbox = bbox
+        self.sphereLeaf = sphere
+
+
 class Sphere():
     def __init__(self, x, y, z, r, color, shininess, roughness):
         self.center = np.array([x, y, z])
@@ -115,7 +123,8 @@ class PNG:
         self.outputFile = ""
         self.image = None
         self.current_rgba = np.array([1, 1, 1, 1])
-        self.renderObjects = []
+        self.sphereList = []
+        self.planeList = []
         self.lights = []
         self.enableSRGB = True
         self.enableFishEye = False
@@ -133,13 +142,17 @@ class PNG:
             for line in lines:
                 self.readKeyword(line)
         
+        self.rootBVHNode = self.build_bvh_sphere(self.sphereList)
         self.start_RTX()
         self.image.save(self.outputFile)
 
     def start_RTX(self):
-        print("Objects to be rendered:")
-        for object in self.renderObjects:
-            print(object)
+        print("Spheres to be rendered:")
+        for sphere in self.sphereList:
+            print(sphere)
+        print("Planes to be rendered:")
+        for plane in self.planeList:
+            print(plane)
         print("Light Sources: ")
         for light in self.lights:
             print(light)
@@ -226,7 +239,11 @@ class PNG:
         min_t_object = None
         min_t_intersection = np.array([float("inf"), float("inf"), float("inf")])
         min_t_normal = None
-        for object in self.renderObjects:
+
+        hitObjectCandidates = self.shoot_ray_to_BVH([origin, direction], self.rootBVHNode)
+        hitObjectCandidates += self.planeList
+
+        for object in hitObjectCandidates:
             if(object == emittingObject):
                 continue
             t, intersection, normal = object.getIntersection(ray=[origin, direction])
@@ -236,7 +253,73 @@ class PNG:
                 min_t_intersection = intersection
                 min_t_normal = normal
         return [min_t_object, min_t, min_t_intersection, min_t_normal]
+    
+    def intersect_aabb(self, ray, bvhNode):
+        aabb_min = bvhNode.bbox[0]
+        aabb_max = bvhNode.bbox[1]
+        ray_origin, ray_direction = ray
+        # Compute the inverse direction of the ray
+        inv_direction = 1.0 / ray_direction
+        # Determine which planes the ray intersects in x, y, and z dimensions
+        tmin_x = (aabb_min[0] - ray_origin[0]) * inv_direction[0]
+        tmax_x = (aabb_max[0] - ray_origin[0]) * inv_direction[0]
+        tmin_y = (aabb_min[1] - ray_origin[1]) * inv_direction[1]
+        tmax_y = (aabb_max[1] - ray_origin[1]) * inv_direction[1]
+        tmin_z = (aabb_min[2] - ray_origin[2]) * inv_direction[2]
+        tmax_z = (aabb_max[2] - ray_origin[2]) * inv_direction[2]
+        # Find the minimum and maximum values of t for the intersection
+        tmin = max(max(min(tmin_x, tmax_x), min(tmin_y, tmax_y)), min(tmin_z, tmax_z))
+        tmax = min(min(max(tmin_x, tmax_x), max(tmin_y, tmax_y)), max(tmin_z, tmax_z))
+        # Check if there is an intersection
+        if tmax < 0 or tmin > tmax:
+            return False
+        else:
+            return True
 
+
+    def shoot_ray_to_BVH(self, ray, bvhNode):
+        ray_origin, ray_direction = ray
+        hitObjectCandidates = []
+        if(self.intersect_aabb(ray, bvhNode)):
+            if(bvhNode.left_child is None and  bvhNode.right_child is None):
+                return [bvhNode.sphereLeaf]
+            hitObjectList1 = self.shoot_ray_to_BVH(ray, bvhNode.left_child)
+            hitObjectList2 = self.shoot_ray_to_BVH(ray, bvhNode.right_child)
+            hitObjectCandidates += hitObjectList1
+            hitObjectCandidates += hitObjectList2
+        return hitObjectCandidates
+
+
+    def build_bvh_sphere(self, spheres):
+        # Compute the bounding box of the entire scene
+        bbox = np.zeros((2, 3))
+        bbox[0] = np.min([sphere.center - sphere.radius for sphere in spheres], axis=0)
+        bbox[1] = np.max([sphere.center + sphere.radius for sphere in spheres], axis=0)
+
+        # Create a BVH node for the scene
+        node = BVHNode(bbox=bbox)
+
+        # If there is only one sphere, create a leaf node for it
+        if len(spheres) == 1:
+            node.sphereLeaf = spheres[0]
+        else:
+            # Find the axis with the largest extent
+            extents = bbox[1] - bbox[0]
+            axis = np.argmax(extents)
+
+            # Sort the spheres along the selected axis
+            sorted_spheres = sorted(spheres, key=lambda sphere: sphere.center[axis])
+
+            # Split the spheres into two groups
+            split_idx = len(sorted_spheres) // 2
+            left_spheres = sorted_spheres[:split_idx]
+            right_spheres = sorted_spheres[split_idx:]
+
+            # Recursively build the BVH for the left and right groups
+            node.left_child = self.build_bvh_sphere(left_spheres)
+            node.right_child = self.build_bvh_sphere(right_spheres)
+
+        return node
     def fillPixels(self, xs, ys, r, g, b, a, useSRGB):
         if(useSRGB):
             r = self.gammaCorrect(r, type="displayToStorage")
@@ -286,14 +369,14 @@ class PNG:
             z = float(info[3])
             r = float(info[4])
             sphere = Sphere(x=x, y=y, z=z, r=r, color=self.current_rgba, shininess=self.currentShininess, roughness=self.currentRoughness)
-            self.renderObjects.append(sphere)
+            self.sphereList.append(sphere)
         elif(keyword == "plane"):
             a = float(info[1])
             b = float(info[2])
             c = float(info[3])
             d = float(info[4])
             plane = Plane(color=self.current_rgba, params=np.array([a, b, c, d]), shininess=self.currentShininess, roughness=self.currentRoughness)
-            self.renderObjects.append(plane)
+            self.planeList.append(plane)
         elif(keyword == "color"):
             r = float(info[1])
             g = float(info[2])

@@ -21,3 +21,4 @@ mpray_plane.txt
 mpray_bounces.txt
 mpray_rough.txt
 mpray_aa.txt
+mpray_dof.txt

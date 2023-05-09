@@ -24,6 +24,7 @@ files=( mpray_sphere
         mpray_bounces
         mpray_rough
         mpray_aa
+        mpray_dof
     )
 for file in ${files[@]}
 do
