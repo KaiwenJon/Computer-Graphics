@@ -131,7 +131,7 @@ class PNG:
         self.forward = np.array([0, 0, -1])
         self.up = np.array([0, 1, 0])
         self.exposureV = None
-        self.currentShininess = None
+        self.currentShininess = np.array([0.0, 0.0, 0.0])
         self.currentRoughness = 0
         self.bounces = 4
         self.aaNum = 1
@@ -164,6 +164,7 @@ class PNG:
             forward_length = np.linalg.norm(forward)
             forward /= forward_length
         for xs in range(self.w):
+            # print("Rendering xs=", xs)
             for ys in range(self.h):
                 # print("Rendering pixels: ", xs, ys)
                 # shoot aaNum rays on this pixel, and average the color
@@ -226,7 +227,7 @@ class PNG:
         if(np.dot(ray_direction, normal) > 0):
             normal = -normal
         diffuseColor = self.getDiffuseLightWithShadows(intersection, hit_object, normal)
-        if(bounces > 0 and hit_object.shininess is not None):
+        if(bounces > 0 and np.any(hit_object.shininess > 0)):
             ray2_origin = intersection
             ray2_direction = 2 * np.dot(normal, -ray_direction) * normal + ray_direction
             reflectedColor, _ = self.ray_tracing(ray=[ray2_origin, ray2_direction], emittingObject=hit_object, bounces=bounces-1)
